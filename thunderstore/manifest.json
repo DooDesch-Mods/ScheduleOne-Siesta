@@ -3,5 +3,11 @@
   "version_number": "1.0.0",
   "website_url": "https://github.com/DooDesch/ScheduleOne-Siesta",
   "description": "Distant NPCs take a siesta so your FPS doesn't - distance/visibility LOD for all NPCs.",
-  "dependencies": []
+  "dependencies": [
+    "LavaGang-MelonLoader-0.7.3",
+    "ifBars-S1API_Forked-3.0.5"
+  ],
+  "contributors": [
+    "DooDesch"
+  ]
 }

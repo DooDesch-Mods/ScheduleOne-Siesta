@@ -30,7 +30,6 @@
 
     <!-- Workspace lib roots (mirrors Trashville ../Workspace/lib) -->
     <WorkspaceLibPath Condition="'$(WorkspaceLibPath)' == ''">$(MSBuildThisFileDirectory)../Workspace/lib</WorkspaceLibPath>
-    <ModManagerPath Condition="'$(ModManagerPath)' == ''">$(WorkspaceLibPath)/modmanager</ModManagerPath>
     <ModsDirectory Condition="'$(ModsDirectory)' == ''">D:\Launcher\SteamLibrary\steamapps\common\Schedule I\Mods</ModsDirectory>
   </PropertyGroup>
 
@@ -124,11 +123,9 @@
       <HintPath>$(GameManagedPath)/UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <!-- Optional dependency: Mod Manager &amp; Phone App (live settings apply + in-phone debug buttons). -->
-    <Reference Include="ModManager&amp;PhoneApp">
-      <HintPath>$(ModManagerPath)/ModManager&amp;PhoneApp.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <!-- Mod Manager &amp; Phone App is an OPTIONAL runtime dependency (declared via MelonOptionalDependencies in
+         Core.cs). Siesta calls none of its API, so no compile-time reference is needed - this keeps the CI build
+         independent of the modmanager lib. Its settings UI auto-detects Siesta via the category id prefix. -->
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT'">

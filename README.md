@@ -98,6 +98,6 @@ The post-build step copies the DLL into the game's `Mods` folder.
 
 ## Credits & License
 
-Created by DooDesch. Released under the [MIT License](LICENSE). Built with
+Created by DooDesch. Released under the [MIT License](LICENSE.md). Built with
 [MelonLoader](https://melonloader.co/), [HarmonyX](https://github.com/BepInEx/HarmonyX) and
 [S1API](https://github.com/ifBars/S1API).

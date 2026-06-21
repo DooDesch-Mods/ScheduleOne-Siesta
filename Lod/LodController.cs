@@ -15,7 +15,32 @@ namespace Siesta.Lod
     internal static class LodController
     {
         private static int _cursor;
-        private static readonly HashSet<int> _failed = new HashSet<int>();   // NPCs whose wake failed -> kept Full
+
+        // Transient wake-failure backoff: a one-off navmesh hiccup must not pin an NPC Full for the whole session.
+        // After a failed wake we keep the NPC Full but retry after RetryAfterSeconds; only once an NPC has failed
+        // MaxConsecutiveFailures times in a row do we give up and keep it permanently Full.
+        private const float RetryAfterSeconds = 60f;
+        private const int MaxConsecutiveFailures = 3;
+        private struct FailInfo { public float RetryAt; public int Count; }
+        private static readonly Dictionary<int, FailInfo> _failed = new Dictionary<int, FailInfo>();
+
+        // True when this NPC should currently be held Full because of a recent wake failure (not yet due for retry,
+        // or it has exhausted its retries). A due-for-retry NPC returns false so the normal path re-attempts it.
+        private static bool IsFailHeld(int id)
+        {
+            if (!_failed.TryGetValue(id, out FailInfo fi)) return false;
+            if (fi.Count >= MaxConsecutiveFailures) return true;       // permanent give-up
+            return Time.unscaledTime < fi.RetryAt;                     // still backing off
+        }
+
+        // Record a wake failure: bump the consecutive count and arm the next retry.
+        private static void NoteFailure(int id)
+        {
+            _failed.TryGetValue(id, out FailInfo fi);
+            fi.Count++;
+            fi.RetryAt = Time.unscaledTime + RetryAfterSeconds;
+            _failed[id] = fi;
+        }
 
         // Manual override (DEBUG console) for A/B measurement: Auto = normal distance-based culling; the Force*
         // modes pin EVERY NPC to one tier each tick so FPS can be compared cleanly (off=Full baseline).
@@ -65,6 +90,33 @@ namespace Siesta.Lod
             RefreshCamera();
             bool authoritative = Net.IsAuthoritative();
 
+            // Unbudgeted promote-only pre-pass: every frame, cheaply scan ALL NPCs and immediately promote any that
+            // should be Full (close OR on-screen) but currently are not. This kills the re-promotion latency of the
+            // budgeted round-robin (a fast 180deg turn would otherwise leave a now-visible NPC hidden/paused for up
+            // to ceil(N/Budget) frames). One Vector3 subtract + dot per NPC - trivial vs the navmesh/animation cost
+            // it removes. Demotion + exemption work stays on the budgeted cursor below.
+            float cosPromote = Preferences.CosmeticDistance * Preferences.CosmeticDistance;
+            bool respectOnScreen = Preferences.RespectOnScreen;
+            for (int i = 0; i < n; i++)
+            {
+                NPC npc;
+                try { npc = reg[i]; } catch { continue; }
+                if (npc == null) continue;
+                int id;
+                try { id = npc.GetInstanceID(); } catch { continue; }
+                if (IsFailHeld(id)) continue;
+                NpcModState st = LodRegistry.GetOrAdd(id, npc);
+                if (st.Tier == LodState.Full) continue;
+
+                Vector3 pp;
+                try { pp = npc.CenterPoint; } catch { continue; }
+                bool shouldBeFull = MinSqrDistToPlayer(pp) < cosPromote || (respectOnScreen && IsOnScreen(pp));
+                if (!shouldBeFull) continue;
+
+                try { LodLevers.ApplyTier(npc, st, LodState.Full, authoritative); }
+                catch (Exception e) { Core.Log?.Warning("[Siesta] promote pre-pass failed: " + e.Message); }
+            }
+
             int steps = Math.Min(Preferences.BudgetPerFrame, n);
             for (int s = 0; s < steps; s++)
             {
@@ -84,13 +136,20 @@ namespace Siesta.Lod
 
             NpcModState st = LodRegistry.GetOrAdd(id, npc);
 
-            if (_failed.Contains(id))
+            if (IsFailHeld(id))
             {
                 if (st.Tier != LodState.Full) LodLevers.ForceFull(npc, st);
                 return;
             }
 
             st.Resolve(npc);
+
+            // Reconcile stale bookkeeping: if the game itself re-showed the NPC (e.g. it exited a building / car),
+            // our st.Hidden flag is stale - clear it so we don't think we still own its visibility.
+            if (st.Hidden)
+            {
+                try { if (npc.isVisible) st.Hidden = false; } catch { }
+            }
 
             Vector3 pos;
             try { pos = npc.CenterPoint; } catch { return; }
@@ -107,8 +166,8 @@ namespace Siesta.Lod
                 if (st.WakeFailed)
                 {
                     st.WakeFailed = false;
-                    _failed.Add(id);
-                    Core.Log?.Warning($"[Siesta] NPC {id} wake failed - forcing permanent exempt (kept Full).");
+                    NoteFailure(id);
+                    Core.Log?.Warning($"[Siesta] NPC {id} wake failed - keeping Full, will retry in {RetryAfterSeconds:F0}s.");
                     LodLevers.ForceFull(npc, st);
                 }
             }
@@ -277,7 +336,7 @@ namespace Siesta.Lod
                 if (npc == null) continue;
                 int id;
                 try { id = npc.GetInstanceID(); } catch { continue; }
-                if (_failed.Contains(id)) continue;
+                if (IsFailHeld(id)) continue;
                 NpcModState st = LodRegistry.GetOrAdd(id, npc);
                 st.Resolve(npc);
                 LodState t = target;

@@ -1,4 +1,5 @@
 using System;
+using Il2CppScheduleOne.GameTime;   // TimeManager (onDayPass)
 using MelonLoader;
 using S1API.Lifecycle;
 using Siesta.Compat;
@@ -25,6 +26,11 @@ namespace Siesta
 
         private bool _inWorld;
         private float _teleElapsed; private int _teleFrames; private float _teleMaxDt;
+
+        // onDayPass -> RestoreAll("new day"). Natural midnight rollover (no sleep/save) leaves distant deep-culled
+        // NPCs "a day behind" until visited; reconcile everyone once per day. Delegate kept so we can unsubscribe.
+        private Il2CppSystem.Action _onDayPass;
+        private bool _dayPassHooked;
 #if DEBUG
         private int _frame;
 #endif
@@ -61,11 +67,13 @@ namespace Siesta
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
         {
             _inWorld = sceneName == "Main";
+            if (_inWorld) HookDayPass();
         }
 
         public override void OnSceneWasUnloaded(int buildIndex, string sceneName)
         {
             _inWorld = false;
+            UnhookDayPass();
             LodController.Reset();   // NPCs are gone with the scene - just drop tracking
         }
 
@@ -75,6 +83,9 @@ namespace Siesta
             {
                 return;
             }
+
+            // TimeManager may not exist the instant the scene loads; keep trying until the hook takes (idempotent).
+            if (!_dayPassHooked) HookDayPass();
 
 #if DEBUG
             PollHotkeys();
@@ -105,12 +116,49 @@ namespace Siesta
 
         public override void OnApplicationQuit()
         {
+            UnhookDayPass();
             LodController.RestoreAll("application quit");
         }
 
         public override void OnDeinitializeMelon()
         {
+            UnhookDayPass();
             LodController.RestoreAll("melon unload");
+        }
+
+        // ----- daily reconcile hook -----
+
+        private void HookDayPass()
+        {
+            if (_dayPassHooked) return;
+            try
+            {
+                if (!NetworkSingleton<TimeManager>.InstanceExists) return;
+                TimeManager tm = NetworkSingleton<TimeManager>.Instance;
+                if (tm == null) return;
+                _onDayPass = (Il2CppSystem.Action)(() => LodController.RestoreAll("new day"));
+                tm.onDayPass += _onDayPass;
+                _dayPassHooked = true;
+            }
+            catch (Exception e)
+            {
+                Log.Warning("[Siesta] onDayPass hook failed: " + e.Message);
+            }
+        }
+
+        private void UnhookDayPass()
+        {
+            if (!_dayPassHooked) return;
+            try
+            {
+                if (NetworkSingleton<TimeManager>.InstanceExists)
+                {
+                    TimeManager tm = NetworkSingleton<TimeManager>.Instance;
+                    if (tm != null && _onDayPass != null) tm.onDayPass -= _onDayPass;
+                }
+            }
+            catch { /* instance gone during teardown -> nothing to detach */ }
+            finally { _onDayPass = null; _dayPassHooked = false; }
         }
 
         // Compact periodic status line (~every 15s) - the one window into the running layer for Release support.

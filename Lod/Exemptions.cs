@@ -1,5 +1,6 @@
 using System;
 using Il2CppScheduleOne.NPCs.Behaviour;   // NPCBehaviour
+using Il2CppScheduleOne.Police;            // PoliceOfficer
 
 namespace Siesta.Lod
 {
@@ -32,15 +33,36 @@ namespace Siesta.Lod
                 if (npc.IsPanicked || npc.isUnsettled) return "panicked";
                 if (npc.IsImportant) return "important";
 
-                if (ExemptOnAnyBehaviour)
+                // Officers are a tiny pooled population the game already manages (CheckDeactivation); never deep-cull
+                // them so a pursuit/patrol/checkpoint/sentry officer can't freeze mid-action once off-screen and far.
+                if (st.Officer != null) return "police";
+
+                // In a conversation: pausing here desyncs the dialogue-end ResumeMovement against our bookkeeping.
+                if (npc.DialogueHandler != null && npc.DialogueHandler.IsDialogueInProgress) return "in-dialogue";
+
+                // Indoor NPCs are already cheap and the building enter/exit handshake (which toggles awareness +
+                // navmesh) is fragile to pause/resume, so leave them to the game.
+                if (npc.isInBuilding) return "in-building";
+
+                // Always-on (independent of ExemptOnAnyBehaviour): an NPC actively running one of the critical
+                // behaviours must keep simulating even far/off-screen, else witnesses/fleers/callers/customers
+                // freeze mid-action (the "reacted only after I pressed E" bug). Targeted to the behaviours that
+                // matter so the routine population stays deep-cull-eligible (the perf win).
+                var beh = npc.Behaviour;
+                if (beh != null && beh.activeBehaviour != null && (
+                    (beh.CombatBehaviour != null && beh.CombatBehaviour.Active) ||
+                    (beh.FleeBehaviour != null && beh.FleeBehaviour.Active) ||
+                    (beh.CoweringBehaviour != null && beh.CoweringBehaviour.Active) ||
+                    (beh.CallPoliceBehaviour != null && beh.CallPoliceBehaviour.Active) ||
+                    (beh.RequestProductBehaviour != null && beh.RequestProductBehaviour.Active) ||
+                    (beh.GenericDialogueBehaviour != null && beh.GenericDialogueBehaviour.Active)))
+                    return "active-critical-behaviour";
+
+                if (ExemptOnAnyBehaviour && beh != null)
                 {
-                    NPCBehaviour beh = npc.Behaviour;
-                    if (beh != null)
-                    {
-                        if (beh.activeBehaviour != null) return "active-behaviour";
-                        var stack = beh.behaviourStack;
-                        if (stack != null && stack.Count > 0) return "behaviour-stack";
-                    }
+                    if (beh.activeBehaviour != null) return "active-behaviour";
+                    var stack = beh.behaviourStack;
+                    if (stack != null && stack.Count > 0) return "behaviour-stack";
                 }
 
                 if (st.Dealer != null)

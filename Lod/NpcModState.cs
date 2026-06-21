@@ -1,5 +1,6 @@
 using Il2CppScheduleOne.Economy;     // Dealer, Customer
 using Il2CppScheduleOne.Employees;   // Employee
+using Il2CppScheduleOne.Police;      // PoliceOfficer
 
 namespace Siesta.Lod
 {
@@ -20,6 +21,7 @@ namespace Siesta.Lod
         internal bool DeepApplied;         // movement/schedule levers are on
         internal bool WePausedMovement;    // we (not the game) paused movement
         internal bool WeDisabledSchedule;  // we (not the game) disabled the schedule
+        internal bool WeDisabledAwareness; // we (not the game) throttled the vision/awareness sweep
         internal bool WakeFailed;          // a wake left the agent off-navmesh -> controller marks permanent-exempt
         internal string ExemptReason;      // last deep-cull eligibility result (null = eligible) - diagnostics only
 
@@ -29,6 +31,7 @@ namespace Siesta.Lod
         internal Dealer Dealer;
         internal Employee Employee;
         internal Customer Customer;
+        internal PoliceOfficer Officer;
 
         internal NpcModState(int id, NPC npc)
         {
@@ -47,6 +50,7 @@ namespace Siesta.Lod
             try { Dealer = npc.TryCast<Dealer>(); } catch { }
             try { Employee = npc.TryCast<Employee>(); } catch { }
             try { Customer = npc.GetComponent<Customer>(); } catch { }
+            try { Officer = npc.TryCast<PoliceOfficer>(); } catch { }
         }
     }
 }

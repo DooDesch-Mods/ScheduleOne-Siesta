@@ -8,9 +8,13 @@ namespace Siesta.Lod
     /// recording exactly what was changed so a restore undoes only our own changes. Uses the game's own
     /// reversible APIs:
     ///   cosmetic  -> NPC.SetVisible(false/true, networked:false)  (local-only; OnNPCVisibilityChanged stands
-    ///                the animator down for free)
+    ///                the animator down for free). NOTE: on the host SetVisible(false) ALSO disables the
+    ///                NavMeshAgent, which would freeze a roaming NPC mid-route - so Hide re-enables the agent
+    ///                when authoritative, leaving movement/schedule untouched (the NPC keeps walking, just hidden).
     ///   deep      -> NPCMovement.PauseMovement/ResumeMovement + NPCScheduleManager.DisableSchedule/
-    ///                EnableSchedule, with EnforceState() catch-up + a NavMesh-replacement safety net on wake.
+    ///                EnableSchedule + NPCAwareness.SetAwarenessActive(false) (the real per-NPC perf lever -
+    ///                throttles the 10Hz vision/awareness sweep), with EnforceState() catch-up + a
+    ///                NavMesh-replacement safety net on wake.
     /// </summary>
     internal static class LodLevers
     {
@@ -32,12 +36,14 @@ namespace Siesta.Lod
 
                 case LodState.Cosmetic:
                     if (st.DeepApplied) RestoreDeep(npc, st);   // came down from Deep: resume sim, stay hidden
-                    if (!st.Hidden) Hide(npc, st);
+                    if (!st.Hidden) Hide(npc, st, authoritative);
                     break;
 
                 case LodState.Deep:
-                    if (!st.Hidden) Hide(npc, st);
+                    // ApplyDeep BEFORE Hide so PauseMovement runs while the agent is still enabled (Hide
+                    // disables it on the host); pausing a live, on-navmesh agent avoids the wake-time error spam.
                     if (!st.DeepApplied) ApplyDeep(npc, st, authoritative);
+                    if (!st.Hidden) Hide(npc, st, authoritative);
                     break;
             }
 
@@ -61,15 +67,38 @@ namespace Siesta.Lod
 
         // ----- cosmetic (local-only, MP-safe) -----
 
-        private static void Hide(NPC npc, NpcModState st)
+        private static void Hide(NPC npc, NpcModState st, bool authoritative)
         {
             npc.SetVisible(false, false);   // networked:false -> local-only, replicates nothing
+            // On the host SetVisible(false) also disables the NavMeshAgent + the interaction collider. Cosmetic
+            // must keep the NPC simulating (it isn't a Deep cull), so re-enable both when authoritative. This is
+            // host-only and networked:false, so it cannot desync clients.
+            if (authoritative)
+            {
+                try
+                {
+                    NPCMovement mv = npc.Movement;
+                    if (mv != null)
+                    {
+                        mv.SetAgentEnabled(true);
+                        mv.VisibilityChange(true);   // restore the CapsuleCollider the SetVisible(false) dropped
+                    }
+                }
+                catch { /* missing movement -> leave as the game left it */ }
+            }
             st.Hidden = true;
         }
 
         private static void Show(NPC npc, NpcModState st)
         {
-            npc.SetVisible(true, false);
+            // Defer to the game when it owns visibility (entering a building / vehicle re-shows the NPC itself);
+            // calling SetVisible(true) then would pop the model on inside a wall or car. Clear st.Hidden either way.
+            bool gameOwnsVisibility = false;
+            try { gameOwnsVisibility = npc.isInBuilding || npc.IsInVehicle; } catch { }
+            if (!gameOwnsVisibility)
+            {
+                npc.SetVisible(true, false);
+            }
             st.Hidden = false;
         }
 
@@ -86,10 +115,20 @@ namespace Siesta.Lod
             }
 
             NPCMovement mv = npc.Movement;
+            // Only pause a live, on-navmesh agent (this runs while the agent is still enabled - Hide comes after,
+            // see ApplyTier). Pausing an off-navmesh/disabled agent is what produced the wake-time error spam.
             if (mv != null && !mv.IsPaused)
             {
-                mv.PauseMovement();
-                st.WePausedMovement = true;
+                try
+                {
+                    NavMeshAgent agent = mv.Agent;
+                    if (agent != null && agent.enabled && agent.isOnNavMesh)
+                    {
+                        mv.PauseMovement();
+                        st.WePausedMovement = true;
+                    }
+                }
+                catch { /* no agent / off navmesh -> skip the pause, awareness + schedule still apply */ }
             }
 
             NPCScheduleManager sm = st.Schedule;
@@ -99,19 +138,39 @@ namespace Siesta.Lod
                 st.WeDisabledSchedule = true;
             }
 
+            // The real per-NPC perf lever: throttle the 10Hz vision/awareness sweep (the game itself does this on
+            // EnterBuilding/ExitBuilding, so it is vanilla-safe and local). Witnesses/police/fleers are already
+            // exempt via Exemptions.Reason, so only off-screen far non-essential NPCs ever reach here.
+            try
+            {
+                NPCAwareness aw = npc.Awareness;
+                if (aw != null)
+                {
+                    aw.SetAwarenessActive(false);
+                    st.WeDisabledAwareness = true;
+                }
+            }
+            catch { /* missing awareness -> leave it on */ }
+
             st.DeepApplied = true;
         }
 
-        /// <summary>Wake order: EnableSchedule -> EnforceState (catch up to the current time-of-day action) ->
-        /// ResumeMovement -> NavMesh-placement repair. The caller makes the NPC visible afterwards.</summary>
+        /// <summary>Wake order (the agent must be LIVE, on-navmesh and unpaused BEFORE the schedule re-evaluates,
+        /// else EnableSchedule/EnforceState issue SetDestination/JumpTo against a disabled, off-navmesh agent and
+        /// the NPC stands inert until poked): restore awareness -> ResumeMovement -> RepairNavMesh -> then
+        /// EnableSchedule + EnforceState. The caller makes the NPC visible afterwards.</summary>
         private static void RestoreDeep(NPC npc, NpcModState st)
         {
-            NPCScheduleManager sm = st.Schedule;
-            if (st.WeDisabledSchedule && sm != null)
+            // Restore the vision/awareness sweep first (cheap, no agent dependency).
+            if (st.WeDisabledAwareness)
             {
-                sm.EnableSchedule();
-                sm.EnforceState(false);   // re-select + start the action that should be active now
-                st.WeDisabledSchedule = false;
+                try
+                {
+                    NPCAwareness aw = npc.Awareness;
+                    if (aw != null) aw.SetAwarenessActive(true);
+                }
+                catch { /* awareness gone -> nothing to restore */ }
+                st.WeDisabledAwareness = false;
             }
 
             NPCMovement mv = npc.Movement;
@@ -119,10 +178,22 @@ namespace Siesta.Lod
             {
                 mv.ResumeMovement();
                 st.WePausedMovement = false;
+                // RepairNavMesh re-enables the agent and re-seats it on the navmesh. If it cannot, keep the NPC
+                // Full (don't re-evaluate the schedule against an unplaced agent) and let the controller exempt it.
                 if (!RepairNavMesh(npc, mv, st))
                 {
                     st.WakeFailed = true;
+                    st.DeepApplied = false;
+                    return;
                 }
+            }
+
+            NPCScheduleManager sm = st.Schedule;
+            if (st.WeDisabledSchedule && sm != null)
+            {
+                sm.EnableSchedule();
+                sm.EnforceState(false);   // re-select + start the action that should be active now (agent is live)
+                st.WeDisabledSchedule = false;
             }
 
             st.DeepApplied = false;
@@ -149,12 +220,13 @@ namespace Siesta.Lod
                     return true;
                 }
 
-                mv.WarpToNavMesh();
-                if (agent.isOnNavMesh) return true;
-
+                // (mv.WarpToNavMesh() is an empty stub in this build - dropped.)
                 if (mv.SmartSampleNavMesh(mv.FootPosition, out NavMeshHit hit))
                 {
                     mv.Warp(hit.position);
+                    // Re-seat the agent the way the game does so isOnNavMesh reflects the new position immediately.
+                    mv.SetAgentEnabled(false);
+                    mv.SetAgentEnabled(true);
                     if (agent.isOnNavMesh) return true;
                 }
 

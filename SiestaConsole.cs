@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using UnityEngine.AI;   // NavMeshHit (for the gather test command)
 using Siesta.Compat;
 using Siesta.Config;
 using Siesta.Lod;
@@ -62,7 +63,8 @@ namespace Siesta
                     case "status": Status(); break;
                     case "why": Log("deep-cull reasons: " + LodRegistry.ReasonTally()); break;
                     case "bex": Exemptions.ExemptOnAnyBehaviour = BoolArg(p, 2, !Exemptions.ExemptOnAnyBehaviour); Log("ExemptOnAnyBehaviour = " + Exemptions.ExemptOnAnyBehaviour); break;
-                    default: Log($"unknown '{cmd}'. Use: off|auto|cosmetic|deep|restore|status|why|bex"); break;
+                    case "gather": Gather(p); break;
+                    default: Log($"unknown '{cmd}'. Use: off|auto|cosmetic|deep|restore|status|why|bex|gather <m>"); break;
                 }
             }
             catch (Exception e)
@@ -70,6 +72,60 @@ namespace Siesta
                 Log("error: " + e.Message);
             }
             return true;
+        }
+
+        /// <summary>
+        /// DEBUG perf-test helper: teleport EVERY NPC onto a ring at a chosen distance around the local player, so the
+        /// per-NPC cost can be measured cleanly per distance band (e.g. `siesta gather 10` = all near/Full = max cost;
+        /// `siesta gather 60` = cosmetic band; `siesta gather 120` = deep band). Restores all NPCs to vanilla first so a
+        /// paused/agent-disabled NPC warps cleanly, then warps onto the navmesh. Leaves the LOD mode unchanged - set the
+        /// mode (siesta full|auto|deep) afterwards to A/B the cull benefit at that distance.
+        /// </summary>
+        private static void Gather(string[] p)
+        {
+            float dist = 10f;
+            if (p.Length > 2 && float.TryParse(p[2], out float d)) dist = Mathf.Clamp(d, 2f, 300f);
+
+            Player local = null;
+            try { local = Player.Local; } catch { }
+            if (local == null || local.transform == null) { Log("gather: no local player"); return; }
+            Vector3 center = local.transform.position;
+
+            var reg = NPCManager.NPCRegistry;
+            if (reg == null) { Log("gather: no NPC registry"); return; }
+
+            // Make every NPC vanilla (agent live, not paused/hidden) so the warp lands cleanly.
+            LodController.RestoreAll("gather");
+
+            int n;
+            try { n = reg.Count; } catch { Log("gather: registry count failed"); return; }
+            int moved = 0, failed = 0;
+            for (int i = 0; i < n; i++)
+            {
+                NPC npc;
+                try { npc = reg[i]; } catch { continue; }
+                if (npc == null) continue;
+                float ang = (i / (float)(n < 1 ? 1 : n)) * 6.2831853f;
+                float r = dist + (i % 6) * 0.6f;   // slight radial spread so they don't all stack on one point
+                Vector3 target = center + new Vector3(Mathf.Cos(ang) * r, 0f, Mathf.Sin(ang) * r);
+                try
+                {
+                    NPCMovement mv = npc.Movement;
+                    if (mv == null) { failed++; continue; }
+                    if (mv.SmartSampleNavMesh(target, out NavMeshHit hit)) mv.Warp(hit.position);
+                    else mv.Warp(target);
+                    // HOLD them: live NPCs immediately path back to their schedule and disperse within seconds, so a
+                    // clean per-distance measurement is impossible. PauseMovement freezes them at the ring (still
+                    // rendered + animated + perceiving = the bulk of the per-NPC cost), so FPS reflects the cost of N
+                    // NPCs at this distance. Release with `siesta restore` or `siesta auto`.
+                    try { mv.PauseMovement(); } catch { }
+                    moved++;
+                }
+                catch { failed++; }
+            }
+            // Pin to Full so Siesta keeps them all rendered (no culling) for the held cost measurement.
+            LodController.Mode = LodController.Control.ForceFull;
+            Log($"gather: warped + HELD {moved}/{n} NPCs at a ~{dist:F0}m ring (failed {failed}), pinned Full. FPS now reflects {moved} NPCs at {dist:F0}m. Release: siesta restore | auto.");
         }
 
         private static void Status()

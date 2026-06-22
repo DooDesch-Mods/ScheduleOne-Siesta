@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using Siesta.Compat;
 using Siesta.Config;
+#if SNITCH
+using Snitch.Api;                 // Profiler sub-section timing (Debug + EnableSnitch only)
+#endif
 
 namespace Siesta.Lod
 {
@@ -46,6 +49,11 @@ namespace Siesta.Lod
         // modes pin EVERY NPC to one tier each tick so FPS can be compared cleanly (off=Full baseline).
         internal enum Control { Auto, ForceFull, ForceCosmetic, ForceDeep }
         internal static Control Mode = Control.Auto;
+#if SNITCH
+        // Snitch ablation lever 'siesta.lodsim': when set, Tick() returns immediately (all LOD work skipped, NPCs
+        // left in their current tier) so the profiler can confirm the LOD sim itself is near-zero cost. Debug only.
+        internal static bool SimDisabled;
+#endif
 
         // Player-position snapshot (taken once per tick; the per-NPC inner loop is pure float math).
         private static Vector3[] _players = new Vector3[8];
@@ -69,6 +77,9 @@ namespace Siesta.Lod
                 if (LodRegistry.HasAny) RestoreAll("multiplayer + EnableInMultiplayer off");
                 return;
             }
+#if SNITCH
+            if (SimDisabled) return;   // ablation lever 'siesta.lodsim': skip all LOD work this frame
+#endif
 
             // Manual A/B override: pin all NPCs to one tier (idempotent ApplyTier makes repeat passes cheap).
             if (Mode != Control.Auto)
@@ -97,6 +108,12 @@ namespace Siesta.Lod
             // it removes. Demotion + exemption work stays on the budgeted cursor below.
             float cosPromote = Preferences.CosmeticDistance * Preferences.CosmeticDistance;
             bool respectOnScreen = Preferences.RespectOnScreen;
+            // Snitch (Debug): time the unbudgeted O(N) promote pre-pass apart from the budgeted round-robin so the
+            // profiler shows where the (tiny, expected) LOD-sim cost actually lives.
+#if SNITCH
+            Profiler.Begin("Siesta.PromotePass");
+            try {
+#endif
             for (int i = 0; i < n; i++)
             {
                 NPC npc;
@@ -116,8 +133,15 @@ namespace Siesta.Lod
                 try { LodLevers.ApplyTier(npc, st, LodState.Full, authoritative); }
                 catch (Exception e) { Core.Log?.Warning("[Siesta] promote pre-pass failed: " + e.Message); }
             }
+#if SNITCH
+            } finally { Profiler.End("Siesta.PromotePass"); }
+#endif
 
             int steps = Math.Min(Preferences.BudgetPerFrame, n);
+#if SNITCH
+            Profiler.Begin("Siesta.Budgeted");
+            try {
+#endif
             for (int s = 0; s < steps; s++)
             {
                 if (_cursor >= n) _cursor = 0;
@@ -127,6 +151,9 @@ namespace Siesta.Lod
                 if (npc == null) continue;
                 Evaluate(npc, authoritative);
             }
+#if SNITCH
+            } finally { Profiler.End("Siesta.Budgeted"); }
+#endif
         }
 
         private static void Evaluate(NPC npc, bool authoritative)

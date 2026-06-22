@@ -5,8 +5,11 @@ using S1API.Lifecycle;
 using Siesta.Compat;
 using Siesta.Config;
 using Siesta.Lod;
+#if SNITCH
+using Snitch.Api;                 // Profiler section timing (Debug + EnableSnitch only; no-op when host absent)
+#endif
 
-[assembly: MelonInfo(typeof(Siesta.Core), "Siesta", "1.0.0", "DooDesch", "https://github.com/DooDesch/ScheduleOne-Siesta")]
+[assembly: MelonInfo(typeof(Siesta.Core), "Siesta", "1.1.0", "DooDesch", "https://github.com/DooDesch/ScheduleOne-Siesta")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 [assembly: MelonOptionalDependencies("ModManager&PhoneApp")]
 
@@ -58,9 +61,9 @@ namespace Siesta
             GameLifecycle.OnPreSceneChange += () => LodController.RestoreAll("scene changing");
 
 #if DEBUG
-            Log.Msg("Siesta v1.0.0 (DEBUG) - NPC LOD active. Hotkeys: F6 HUD, F7 all->Full, F8 ->Cosmetic, F9 ->Deep(host), F10 restore-all.");
+            Log.Msg("Siesta v1.1.0 (DEBUG) - NPC LOD active. Hotkeys: F6 HUD, F7 all->Full, F8 ->Cosmetic, F9 ->Deep(host), F10 restore-all.");
 #else
-            Log.Msg("Siesta v1.0.0 - NPC LOD active.");
+            Log.Msg("Siesta v1.1.0 - NPC LOD active.");
 #endif
         }
 
@@ -91,7 +94,11 @@ namespace Siesta
             PollHotkeys();
 #endif
 
+#if SNITCH
+            using (Profiler.Sample("Siesta.Lod")) LodController.Tick();
+#else
             LodController.Tick();
+#endif
             TelemetryTick();
 
 #if DEBUG

@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Optional Snitch profiler in Debug builds (no-op when the Snitch host is absent). -->
+  <Import Project="$(MSBuildThisFileDirectory)../Workspace/build/Snitch.props" />
+
   <!--
     Siesta - MelonLoader IL2CPP NPC-performance mod for Schedule I.
     Distance/visibility LOD for ALL NPCs (base game + any mod that adds NPCs): off-screen/far NPCs are

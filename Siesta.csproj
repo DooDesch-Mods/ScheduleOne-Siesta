@@ -1,7 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Optional Snitch profiler in Debug builds (no-op when the Snitch host is absent). -->
-  <Import Project="$(MSBuildThisFileDirectory)../Workspace/build/Snitch.props" />
+  <!-- Optional Snitch profiler in Debug builds (no-op when the Snitch host is absent). Exists-guarded so CI
+       (where the Workspace repo is checked out to ./Workspace, not ../Workspace) just skips it. -->
+  <Import Project="$(MSBuildThisFileDirectory)../Workspace/build/Snitch.props" Condition="Exists('$(MSBuildThisFileDirectory)../Workspace/build/Snitch.props')" />
+
+  <!-- CI checks out the shared Workspace repo as a SUBFOLDER of this project, so the SDK's default **/*.cs glob
+       would sweep in Workspace/ui, Workspace/build, etc. (uGUI design-system source this mod does not use).
+       This mod compiles only its own source - exclude everything under Workspace. No-op locally, where Workspace
+       is a sibling folder. Anything actually needed (e.g. the Snitch shim) is linked explicitly via props. -->
+  <ItemGroup>
+    <Compile Remove="Workspace/**/*.cs" />
+  </ItemGroup>
 
   <!--
     Siesta - MelonLoader IL2CPP NPC-performance mod for Schedule I.

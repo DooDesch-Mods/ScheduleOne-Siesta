@@ -19,8 +19,9 @@ namespace Siesta
     /// MelonLoader entry point for the Siesta performance mod. Every in-world frame it drives the LOD
     /// controller, which hides off-screen/far NPCs and (host-only) pauses far idle non-essential NPCs to
     /// recover FPS, restoring them as the player approaches. NPCs are always restored to vanilla before any
-    /// save / scene change / quit so the game never persists a culled NPC. DEBUG builds add an on-screen HUD,
-    /// dev hotkeys and a disk-flushed heartbeat; Release ships only the LOD layer + a compact telemetry line.
+    /// save / scene change / quit so the game never persists a culled NPC. DEBUG builds add a disk-flushed
+    /// heartbeat and (via the Snitch profiler) a panel of live counters/state and controls; Release ships only
+    /// the LOD layer + a compact telemetry line.
     /// </summary>
     public sealed class Core : MelonMod
     {
@@ -61,7 +62,7 @@ namespace Siesta
             GameLifecycle.OnPreSceneChange += () => LodController.RestoreAll("scene changing");
 
 #if DEBUG
-            Log.Msg("Siesta v1.1.0 (DEBUG) - NPC LOD active. Hotkeys: F6 HUD, F7 all->Full, F8 ->Cosmetic, F9 ->Deep(host), F10 restore-all.");
+            Log.Msg("Siesta v1.1.0 (DEBUG) - NPC LOD active. Controls + live counters are in the Snitch panel \"Siesta LOD\".");
 #else
             Log.Msg("Siesta v1.1.0 - NPC LOD active.");
 #endif
@@ -90,10 +91,6 @@ namespace Siesta
             // TimeManager may not exist the instant the scene loads; keep trying until the hook takes (idempotent).
             if (!_dayPassHooked) HookDayPass();
 
-#if DEBUG
-            PollHotkeys();
-#endif
-
 #if SNITCH
             using (Profiler.Sample("Siesta.Lod")) LodController.Tick();
 #else
@@ -114,9 +111,6 @@ namespace Siesta
 
         public override void OnGUI()
         {
-#if DEBUG
-            UI.DebugHud.Draw();
-#endif
             if (!_inWorld) return;
             if (Preferences.ShowFpsCounter) UI.FpsCounter.Draw();
         }
@@ -187,23 +181,5 @@ namespace Siesta
             catch { }
             finally { _teleElapsed = 0f; _teleFrames = 0; _teleMaxDt = 0f; }
         }
-
-#if DEBUG
-        private void PollHotkeys()
-        {
-            try
-            {
-                if (Input.GetKeyDown(KeyCode.F6)) Preferences.SetShowHud(!Preferences.ShowHud);
-                if (Input.GetKeyDown(KeyCode.F7)) { LodController.ForceAll(LodState.Full); Log.Msg("[Siesta] forced all -> Full"); }
-                if (Input.GetKeyDown(KeyCode.F8)) { LodController.ForceAll(LodState.Cosmetic); Log.Msg("[Siesta] forced all -> Cosmetic"); }
-                if (Input.GetKeyDown(KeyCode.F9)) { LodController.ForceAll(LodState.Deep); Log.Msg("[Siesta] forced all -> Deep (host-gated)"); }
-                if (Input.GetKeyDown(KeyCode.F10)) { LodController.RestoreAll("hotkey panic restore"); Log.Msg("[Siesta] restore-all"); }
-            }
-            catch (Exception e)
-            {
-                Log.Warning("[Siesta] hotkey error: " + e.Message);
-            }
-        }
-#endif
     }
 }

@@ -20,7 +20,8 @@
     NavMeshAgent is the dominant per-NPC cost. Everything is reversible via the game's own resume APIs with
     a schedule EnforceState() catch-up, so functionality (dealers, employees, customers, quests, schedules)
     is preserved. Cosmetic culling is local/per-client (MP-safe); deep culling is host-authoritative only.
-    DEBUG builds add the FPS sampler / HUD / hotkeys + disk-flushed DiagLog; Release excludes those (below).
+    DEBUG builds add a disk-flushed DiagLog + a dev console, and (under the SNITCH symbol) a Snitch panel with
+    live counters/state and controls; Release excludes those (below).
     Cloned from the Trashville template (net6.0 => Backend=il2cpp, refs from Workspace/lib/il2cpp).
   -->
 
@@ -65,10 +66,9 @@
     <Compile Remove="Compat/GlobalUsings.Mono.cs" Condition="'$(Backend)' != 'mono'" />
   </ItemGroup>
 
-  <!-- Release: compile OUT the dev-only surface (sampler / HUD / disk diag). The release-core (Core, Compat,
+  <!-- Release: compile OUT the dev-only surface (disk diag + dev console). The release-core (Core, Compat,
        Config, Lod/*, UI/FpsCounter) is the full LOD layer and references none of these files. -->
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
-    <Compile Remove="UI/DebugHud.cs" />
     <Compile Remove="DiagLog.cs" />
     <Compile Remove="SiestaConsole.cs" />
   </ItemGroup>

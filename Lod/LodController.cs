@@ -195,6 +195,9 @@ namespace Siesta.Lod
                     st.WakeFailed = false;
                     NoteFailure(id);
                     Core.Log?.Warning($"[Siesta] NPC {id} wake failed - keeping Full, will retry in {RetryAfterSeconds:F0}s.");
+#if SNITCH
+                    Profiler.Log("Siesta", $"NPC {id} wake failed - kept Full, retry in {RetryAfterSeconds:F0}s.", LogLevel.Warning);
+#endif
                     LodLevers.ForceFull(npc, st);
                 }
             }
@@ -333,6 +336,9 @@ namespace Siesta.Lod
                 LodRegistry.RestoreAll();
                 _failed.Clear();
                 _cursor = 0;
+#if SNITCH
+                Profiler.Log("Siesta", "restored all NPCs to vanilla (" + reason + ")");
+#endif
             }
             catch (Exception e)
             {

@@ -5,8 +5,8 @@ namespace Siesta.Config
 {
     /// <summary>
     /// MelonPreferences wrapper. The category id is prefixed with the mod name ("Siesta_...") so it is
-    /// auto-detected by the "Mod Manager &amp; Phone App" settings UI. Release entries (the LOD layer) are
-    /// always registered; the on-screen HUD toggle only registers in DEBUG builds.
+    /// auto-detected by the "Mod Manager &amp; Phone App" settings UI. All entries (the LOD layer plus the
+    /// optional FPS counter) ship in every build.
     /// </summary>
     internal static class Preferences
     {
@@ -27,10 +27,6 @@ namespace Siesta.Config
         private static MelonPreferences_Entry<bool> _showFps;
         private static MelonPreferences_Entry<bool> _moreNpcsCompat;
 
-#if DEBUG
-        private static MelonPreferences_Entry<bool> _showHud;
-#endif
-
         internal static void Initialize()
         {
             if (_category != null)
@@ -38,11 +34,7 @@ namespace Siesta.Config
                 return;
             }
 
-#if DEBUG
-            _category = MelonPreferences.CreateCategory(CategoryId, "Siesta (NPC Performance + Debug HUD)");
-#else
             _category = MelonPreferences.CreateCategory(CategoryId, "Siesta (NPC Performance)");
-#endif
 
             _enableLod = Create("EnableLod", true, "Enable NPC LOD",
                 "Master switch. When ON (default), NPCs that are off-screen and far from you are culled to recover " +
@@ -87,11 +79,6 @@ namespace Siesta.Config
                 "per-frame watcher (MoreNPCs.Core.OnUpdate) so the game stays stable - MoreNPCs' NPCs still spawn via " +
                 "S1API. No effect if MoreNPCs is absent or already compatible. Turn OFF to never apply it. Requires a " +
                 "game restart to take effect.");
-
-#if DEBUG
-            _showHud = Create("ShowHud", true, "Show debug HUD",
-                "Show the live LOD readout overlay (FPS + Full/Cosmetic/Deep/exempt counts). Toggle in game with F6.");
-#endif
         }
 
         private static MelonPreferences_Entry<T> Create<T>(string id, T def, string name, string desc = null,
@@ -115,10 +102,5 @@ namespace Siesta.Config
         internal static bool RespectOnScreen => _respectOnScreen?.Value ?? true;
         internal static bool ShowFpsCounter => _showFps?.Value ?? false;
         internal static bool MoreNpcsCompat => _moreNpcsCompat?.Value ?? true;
-
-#if DEBUG
-        internal static bool ShowHud => _showHud?.Value ?? true;
-        internal static void SetShowHud(bool value) { if (_showHud != null) _showHud.Value = value; }
-#endif
     }
 }

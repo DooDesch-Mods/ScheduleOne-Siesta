@@ -9,7 +9,7 @@ using Siesta.Lod;
 using Snitch.Api;                 // Profiler section timing (Debug + EnableSnitch only; no-op when host absent)
 #endif
 
-[assembly: MelonInfo(typeof(Siesta.Core), "Siesta", "1.1.0", "DooDesch", "https://github.com/DooDesch/ScheduleOne-Siesta")]
+[assembly: MelonInfo(typeof(Siesta.Core), "Siesta", "1.1.1", "DooDesch", "https://github.com/DooDesch/ScheduleOne-Siesta")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 [assembly: MelonOptionalDependencies("ModManager&PhoneApp")]
 

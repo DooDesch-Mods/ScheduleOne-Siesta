@@ -3,6 +3,15 @@
 All notable changes to Siesta are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.1] - 2026-07-22
+
+### Fixed
+
+- NPCs walking into a building are no longer deep-culled mid-approach. Pausing them there stranded
+  groups at the door (visible as door clusters with big NPC packs) and re-ran the fragile building
+  enter path on every wake. NPCs whose active schedule step is a stay-in-building event now keep
+  simulating until they are inside; once inside, the existing in-building rule takes over.
+
 ## [1.1.0] - 2026-06-21
 
 A correctness pass so NPCs feel like vanilla under heavy population (MoreNPCs), plus a real per-NPC saving.

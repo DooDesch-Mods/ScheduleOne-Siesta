@@ -44,6 +44,20 @@ namespace Siesta.Lod
                 // navmesh) is fragile to pause/resume, so leave them to the game.
                 if (npc.isInBuilding) return "in-building";
 
+                // Mid building-transit: the active schedule event wants this NPC inside a building but it is
+                // not yet (walking to the door / running the enter handshake). Pausing here strands NPCs in
+                // clusters at the door, and every wake re-runs the fragile enter path (error spam with many
+                // NPCs sharing one door). Leave the whole approach to the game; once inside, the in-building
+                // rule above takes over.
+                var sched = st.Schedule;
+                if (sched != null)
+                {
+                    var active = sched.ActiveAction;
+                    if (active != null &&
+                        active.TryCast<Il2CppScheduleOne.NPCs.Schedules.NPCEvent_StayInBuilding>() != null)
+                        return "building-transit";
+                }
+
                 // Always-on (independent of ExemptOnAnyBehaviour): an NPC actively running one of the critical
                 // behaviours must keep simulating even far/off-screen, else witnesses/fleers/callers/customers
                 // freeze mid-action (the "reacted only after I pressed E" bug). Targeted to the behaviours that

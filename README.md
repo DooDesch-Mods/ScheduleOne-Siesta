@@ -1,6 +1,6 @@
 # Siesta - Let Distant NPCs Nap for More FPS
 
-> 🛟 **Need help or found a bug?** Get support at [support.doodesch.de](https://support.doodesch.de).
+> 🛟 **Need help or found a bug?** Get support at [support.doodesch.de/siesta](https://support.doodesch.de/siesta).
 
 > Big crowds tanking your frames? Siesta puts off-screen, far-away NPCs to sleep - hiding them
 > and pausing their movement and schedule - then wakes them cleanly as you get close. Works on

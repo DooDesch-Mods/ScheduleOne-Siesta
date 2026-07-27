@@ -40,7 +40,6 @@
 | Schedule I | IL2CPP (current Steam public build) |
 | MelonLoader | `0.7.3+` |
 | S1API | [ifBars/S1API_Forked](https://thunderstore.io/c/schedule-i/p/ifBars/S1API_Forked/) (NPC registry, save lifecycle) |
-| Mod Manager & Phone App | [Prowiler, Nexus mods/397](https://www.nexusmods.com/schedule1/mods/397) - optional, for the in-game settings UI |
 
 ## Installation
 
@@ -54,11 +53,10 @@ Install with a mod manager (r2modman / Gale) from the Schedule I community; the 
 1. Install **MelonLoader 0.7.3** for Schedule I.
 2. Install **S1API** (its DLLs go in `Mods/` and `Plugins/` per its own instructions).
 3. Drop **`Siesta.dll`** into your Schedule I `Mods/` folder.
-4. (Optional) Install **Mod Manager & Phone App** for the in-game settings UI.
 
 ## Configuration
 
-Settings live in the **Mod Manager & Phone App** UI in-game, or in `UserData/MelonPreferences.cfg`
+Settings live in `UserData/MelonPreferences.cfg`
 under `Siesta_01_Main`. Changes apply live.
 
 | Setting | Default | What it does |
@@ -105,7 +103,6 @@ for NPCs you aren't looking at, so it's a safe, free-when-idle optimization.
 
 - **DooDesch** - mod author.
 - **[ifBars/S1API](https://github.com/ifBars/S1API)** - the modding API this is built on.
-- **Prowiler** - Mod Manager & Phone App (in-game settings UI).
 
 ## License
 

@@ -31,7 +31,6 @@
 
 - **Schedule I** (IL2CPP) with **MelonLoader 0.7.3+**.
 - **S1API** (pulled in as a dependency).
-- Optional: **Mod Manager & Phone App** for the in-game settings UI.
 
 ## How much FPS will I gain?
 
@@ -43,7 +42,7 @@ ever removes work for NPCs you aren't looking at, so it's a safe, free-when-idle
 
 `EnableLod`, `EnableInMultiplayer`, `CosmeticDistance` (40), `DeepDistance` (80), `Hysteresis` (8),
 `BudgetPerFrame` (32), `UseCosmeticCull`, `UseDeepCull`, `RespectOnScreen`, `ShowFpsCounter`,
-`MoreNpcsAutoCompat`. Editable in the Mod Manager & Phone App UI or `UserData/MelonPreferences.cfg`.
+`MoreNpcsAutoCompat`. Editable in `UserData/MelonPreferences.cfg`.
 
 ## License
 

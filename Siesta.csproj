@@ -139,9 +139,6 @@
       <HintPath>$(GameManagedPath)/UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
-    <!-- Mod Manager &amp; Phone App is an OPTIONAL runtime dependency (declared via MelonOptionalDependencies in
-         Core.cs). Siesta calls none of its API, so no compile-time reference is needed - this keeps the CI build
-         independent of the modmanager lib. Its settings UI auto-detects Siesta via the category id prefix. -->
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT'">

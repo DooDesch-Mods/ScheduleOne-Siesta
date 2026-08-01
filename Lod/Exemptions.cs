@@ -17,7 +17,7 @@ namespace Siesta.Lod
     {
         /// <summary>When true, ANY active behaviour / non-empty behaviour stack exempts the NPC. In Schedule I
         /// routine scheduled NPCs almost always carry a behaviour, so this (default OFF) would exempt everyone;
-        /// the specific dealer/employee/customer/important checks below are the real safety net. Kept as a
+        /// the specific dealer/employee/customer checks below are the real safety net. Kept as a
         /// toggle for live testing.</summary>
         internal static bool ExemptOnAnyBehaviour = false;
 
@@ -31,7 +31,11 @@ namespace Siesta.Lod
                 if (!npc.IsConscious) return "unconscious";
                 if (npc.IsInVehicle) return "in-vehicle";
                 if (npc.IsPanicked || npc.isUnsettled) return "panicked";
-                if (npc.IsImportant) return "important";
+
+                // There used to be an `npc.IsImportant` exemption here. 0.4.6f11 deleted that flag from NPC without a
+                // successor - vanilla itself only ever read it in one place (NPCHealth, to keep a corpse from being
+                // cleaned up). The dealer, employee, customer and critical-behaviour rules below already cover the
+                // NPCs that actually must keep simulating, so nothing takes its place.
 
                 // Officers are a tiny pooled population the game already manages (CheckDeactivation); never deep-cull
                 // them so a pursuit/patrol/checkpoint/sentry officer can't freeze mid-action once off-screen and far.

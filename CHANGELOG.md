@@ -3,6 +3,18 @@
 All notable changes to Siesta are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-08-01
+
+### Fixed
+
+- Works on Schedule I 0.4.6f11. Update S1API to 3.1.1 with it.
+
+### Changed
+
+- NPCs the game flagged as important are no longer exempt from culling. 0.4.6f11 deleted that flag
+  and put nothing in its place. Police, dealers and employees on a job, customers waiting on a
+  delivery, and anyone fleeing, fighting or talking are still exempt.
+
 ## [1.1.1] - 2026-07-22
 
 ### Fixed

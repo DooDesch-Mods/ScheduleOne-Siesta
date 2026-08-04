@@ -25,7 +25,6 @@ namespace Siesta.Config
         private static MelonPreferences_Entry<bool> _useDeepCull;
         private static MelonPreferences_Entry<bool> _respectOnScreen;
         private static MelonPreferences_Entry<bool> _showFps;
-        private static MelonPreferences_Entry<bool> _moreNpcsCompat;
 
         internal static void Initialize()
         {
@@ -73,12 +72,6 @@ namespace Siesta.Config
                 "a visible NPC freeze or pop. Recommended ON.");
             _showFps = Create("ShowFpsCounter", false, "Show FPS counter",
                 "Small on-screen FPS readout (top-right). OFF by default. Applies live.");
-            _moreNpcsCompat = Create("MoreNpcsAutoCompat", true, "MoreNPCs auto-compat",
-                "ON (default). Siesta auto-detects \"Fannso's MoreNPCs\" and, ONLY if its build is incompatible with " +
-                "this IL2CPP install (it would throw a TypeLoadException every frame), neutralizes its crashing " +
-                "per-frame watcher (MoreNPCs.Core.OnUpdate) so the game stays stable - MoreNPCs' NPCs still spawn via " +
-                "S1API. No effect if MoreNPCs is absent or already compatible. Turn OFF to never apply it. Requires a " +
-                "game restart to take effect.");
         }
 
         private static MelonPreferences_Entry<T> Create<T>(string id, T def, string name, string desc = null,
@@ -101,6 +94,5 @@ namespace Siesta.Config
         internal static bool UseDeepCull => _useDeepCull?.Value ?? true;
         internal static bool RespectOnScreen => _respectOnScreen?.Value ?? true;
         internal static bool ShowFpsCounter => _showFps?.Value ?? false;
-        internal static bool MoreNpcsCompat => _moreNpcsCompat?.Value ?? true;
     }
 }

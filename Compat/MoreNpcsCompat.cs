@@ -1,49 +1,48 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
+using System.Reflection.Emit;
 using HarmonyLib;
 
 namespace Siesta.Compat
 {
     /// <summary>
-    /// Auto-detecting compatibility shim for "Fannso's MoreNPCs". Its CrossCompat/Mono build references game types
-    /// as <c>ScheduleOne.*</c>, which only exist on a de-prefixed Il2Cpp interop. On a STANDARD (prefixed) install
-    /// the interop is <c>Il2CppScheduleOne.*</c>, so MoreNPCs' per-frame watcher
-    /// <c>PPHylandHandoverWarning.RefreshThrottled()</c> throws a TypeLoadException (HandoverScreen) every frame,
-    /// spamming the log and starving the bridge. That method cannot be Harmony-patched (patching reads its body,
-    /// re-triggering the type load), so we patch its caller <c>MoreNPCs.Core.OnUpdate()</c> - whose IL is only method
-    /// calls (no broken type tokens) and is patchable. Skipping OnUpdate disables MoreNPCs' per-frame watchers, but
-    /// its NPCs spawn via the backend-neutral S1API on save load regardless, so the mod runs stably.
+    /// Keeps "Fannso's MoreNPCs" from flooding the log on an install where one of its watchers cannot run.
     ///
-    /// AUTO-DETECTION (scan-free, so it never triggers AccessTools' full-domain type-load warnings): the shim is
-    /// applied ONLY when (a) the MoreNPCs assembly is loaded AND (b) the exact game type MoreNPCs hard-references
-    /// (<c>ScheduleOne.UI.Handover.HandoverScreen</c>) does NOT resolve in the loaded Assembly-CSharp - i.e. the
-    /// build would actually crash here. When MoreNPCs is absent, or already compatible (de-prefixed install), this
-    /// is a no-op and MoreNPCs is left fully intact.
+    /// MoreNPCs ships separate builds for the two backends. Its CrossCompat/Mono build names game types
+    /// <c>ScheduleOne.*</c>, which only resolve on a de-prefixed Il2Cpp interop; on a standard (prefixed)
+    /// install the interop is <c>Il2CppScheduleOne.*</c>, so
+    /// <c>PPHylandHandoverWarning.RefreshThrottled()</c> throws a TypeLoadException the moment it is JIT-ed.
+    /// It is called from <c>MoreNPCs.Core.OnUpdate()</c>, so that is once per frame - measured at ~2300
+    /// exceptions and half a megabyte of log in ten seconds.
+    ///
+    /// The one call is replaced with <see cref="Guarded"/>, which invokes it and, on the first failure,
+    /// stops calling it for the session. Everything else MoreNPCs does per frame is untouched - its NPC
+    /// unlocks, dialogue refresh, cartel watcher and building setup all keep running. On a correctly
+    /// matched build nothing ever throws, so the watcher behaves exactly as MoreNPCs intends and this
+    /// costs one extra static call per frame.
+    ///
+    /// Patching <c>RefreshThrottled</c> itself is not an option: Harmony emits the original body into its
+    /// replacement, which resolves the very type token that cannot load. Redirecting the call site works
+    /// because <c>OnUpdate</c>'s own IL is just five calls.
     /// </summary>
     internal static class MoreNpcsCompat
     {
-        // The type MoreNPCs' per-frame watcher hard-references. If this resolves, MoreNPCs runs fine and we do nothing.
-        private const string ProbeType = "ScheduleOne.UI.Handover.HandoverScreen";
+        private const string WatcherType = "PPHylandHandoverWarning";
+        private const string WatcherMethod = "RefreshThrottled";
+
+        private static MethodInfo _watcher;   // MoreNPCs' PPHylandHandoverWarning.RefreshThrottled
+        private static Action _invoke;
+        private static bool _givenUp;
 
         internal static void Apply(HarmonyLib.Harmony harmony)
         {
             try
             {
-                // Cheap, direct assembly lookup by name - avoids AccessTools' full-domain type scan (which logs
-                // ReflectionTypeLoadException warnings for some IL2CPP assemblies). No-op if MoreNPCs isn't installed.
+                // Direct lookup by assembly name - AccessTools' full-domain scan logs load warnings for some
+                // IL2CPP assemblies. No-op when MoreNPCs is not installed.
                 Assembly moreAsm = FindAssembly("MoreNPCs");
-                if (moreAsm == null)
-                {
-                    return;
-                }
-
-                // Does the exact game type MoreNPCs hard-references resolve here? If yes, it works natively -> leave it.
-                Assembly gameAsm = FindAssembly("Assembly-CSharp");
-                if (gameAsm != null && gameAsm.GetType(ProbeType, false) != null)
-                {
-                    Core.Log?.Msg("[Siesta] MoreNPCs detected and compatible with this install - compat shim not needed.");
-                    return;
-                }
+                if (moreAsm == null) return;
 
                 Type core = moreAsm.GetType("MoreNPCs.Core", false);
                 MethodInfo target = core?.GetMethod("OnUpdate",
@@ -54,14 +53,59 @@ namespace Siesta.Compat
                     return;
                 }
 
-                var prefix = new HarmonyMethod(typeof(MoreNpcsCompat)
-                    .GetMethod(nameof(SkipOriginal), BindingFlags.Static | BindingFlags.NonPublic));
-                harmony.Patch(target, prefix: prefix);
-                Core.Log?.Msg("[Siesta] MoreNPCs (incompatible build for this IL2CPP install) auto-detected - compat shim applied: skipping MoreNPCs.Core.OnUpdate to stop the per-frame TypeLoadException storm; its NPCs still spawn via S1API.");
+                harmony.Patch(target, transpiler: new HarmonyMethod(typeof(MoreNpcsCompat)
+                    .GetMethod(nameof(Transpile), BindingFlags.Static | BindingFlags.NonPublic)));
             }
             catch (Exception e)
             {
-                Core.Log?.Warning("[Siesta] MoreNPCs compat shim failed: " + e.Message);
+                Core.Log?.Warning("[Siesta] MoreNPCs compat failed: " + e.Message);
+            }
+        }
+
+        private static IEnumerable<CodeInstruction> Transpile(IEnumerable<CodeInstruction> instructions)
+        {
+            var code = new List<CodeInstruction>(instructions);
+            MethodInfo guard = typeof(MoreNpcsCompat)
+                .GetMethod(nameof(Guarded), BindingFlags.Static | BindingFlags.NonPublic);
+
+            for (int i = 0; i < code.Count; i++)
+            {
+                CodeInstruction ins = code[i];
+                if (ins.opcode != OpCodes.Call && ins.opcode != OpCodes.Callvirt) continue;
+                if (!(ins.operand is MethodInfo m)) continue;
+                if (m.Name != WatcherMethod) continue;
+                if (m.DeclaringType == null || m.DeclaringType.Name != WatcherType) continue;
+                if (m.GetParameters().Length != 0 || !m.IsStatic) continue;
+
+                _watcher = m;
+                ins.opcode = OpCodes.Call;
+                ins.operand = guard;
+                return code;
+            }
+
+            // MoreNPCs changed its update loop - leave it exactly as it is rather than guess.
+            Core.Log?.Msg("[Siesta] MoreNPCs compat: no " + WatcherType + "." + WatcherMethod
+                + " call in OnUpdate - nothing to guard, MoreNPCs left untouched.");
+            return code;
+        }
+
+        /// <summary>Stands in for MoreNPCs' handover watcher: passes the call through, and after the first
+        /// failure stops calling it so a build mismatch cannot throw once per frame for the whole session.</summary>
+        private static void Guarded()
+        {
+            if (_givenUp) return;
+            try
+            {
+                if (_invoke == null) _invoke = (Action)Delegate.CreateDelegate(typeof(Action), _watcher);
+                _invoke();
+            }
+            catch (Exception e)
+            {
+                _givenUp = true;
+                Core.Log?.Warning("[Siesta] MoreNPCs' " + WatcherType + " cannot run on this install ("
+                    + e.GetType().Name + ") - Siesta will not call it again this session. This usually means the"
+                    + " CrossCompat/Mono MoreNPCs build is installed on a standard IL2CPP game; the rest of"
+                    + " MoreNPCs is unaffected.");
             }
         }
 
@@ -78,8 +122,5 @@ namespace Siesta.Compat
             }
             return null;
         }
-
-        // Returning false skips the original (void) method.
-        private static bool SkipOriginal() => false;
     }
 }

@@ -3,6 +3,21 @@
 All notable changes to Siesta are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.1] - 2026-08-05
+
+### Fixed
+
+- NPCs from Fannso's MoreNPCs work again. Siesta was switching off that mod's whole per-frame loop,
+  which left Dominic, Silas and Thomas locked, their dialogue stale and their building setup
+  unfinished. Only the one watcher that cannot run on a mismatched build is skipped now, and only
+  after it has actually failed once.
+
+### Removed
+
+- The `MoreNpcsAutoCompat` setting is gone. The MoreNPCs handling no longer has a wrong case to opt
+  out of. Delete the line from `UserData/MelonPreferences.cfg` if you want a tidy file; leaving it
+  does nothing.
+
 ## [1.2.0] - 2026-08-01
 
 ### Fixed

@@ -6,7 +6,7 @@
 > sleep - hiding them and pausing their movement/schedule - then wakes them cleanly as you approach.
 > Works on every NPC in the world, including ones added by other mods.
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.2.1-blue)
 ![Game](https://img.shields.io/badge/game-Schedule%20I-purple)
 ![MelonLoader](https://img.shields.io/badge/MelonLoader-0.7.3+-green)
 ![S1API](https://img.shields.io/badge/S1API-required-orange)
@@ -24,8 +24,6 @@
   host who owns NPC simulation, so there is no desync.
 - **Cheap and self-tuning.** A small, fixed number of NPCs is re-checked per frame, so the mod's own cost
   stays flat regardless of how many NPCs exist.
-- **MoreNPCs auto-compat.** Auto-detects an incompatible *Fannso's MoreNPCs* build on prefixed IL2CPP and
-  stabilizes it so the game stops crash-spamming (opt-out).
 
 ## Requirements
 
@@ -41,8 +39,8 @@ ever removes work for NPCs you aren't looking at, so it's a safe, free-when-idle
 ## Settings
 
 `EnableLod`, `EnableInMultiplayer`, `CosmeticDistance` (40), `DeepDistance` (80), `Hysteresis` (8),
-`BudgetPerFrame` (32), `UseCosmeticCull`, `UseDeepCull`, `RespectOnScreen`, `ShowFpsCounter`,
-`MoreNpcsAutoCompat`. Editable in `UserData/MelonPreferences.cfg`.
+`BudgetPerFrame` (32), `UseCosmeticCull`, `UseDeepCull`, `RespectOnScreen`, `ShowFpsCounter`.
+Editable in `UserData/MelonPreferences.cfg`.
 
 ## License
 

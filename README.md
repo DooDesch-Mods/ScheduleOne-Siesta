@@ -7,7 +7,7 @@
 > every NPC in the world, including ones added by other mods. Built on
 > [S1API](https://github.com/ifBars/S1API).
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.2.1-blue)
 ![Game](https://img.shields.io/badge/game-Schedule%20I-purple)
 ![MelonLoader](https://img.shields.io/badge/MelonLoader-0.7.3+-green)
 ![S1API](https://img.shields.io/badge/S1API-required-orange)
@@ -28,8 +28,6 @@
   on the host** (who owns NPC simulation), so there is no desync.
 - **Cheap and self-tuning.** A small, fixed number of NPCs is re-checked per frame, so the mod's own
   cost stays flat regardless of how many NPCs exist.
-- **MoreNPCs auto-compat.** Auto-detects an incompatible *Fannso's MoreNPCs* build on prefixed IL2CPP
-  and stabilizes it so the game stops crash-spamming (opt-out).
 - **Works with anything that adds NPCs** - base game, employee mods, NPC-overhaul mods. The win scales
   with how many NPCs are far from you, so it shines in crowded saves.
 
@@ -71,7 +69,6 @@ under `Siesta_01_Main`. Changes apply live.
 | `UseDeepCull` | `true` | Enable the pause-movement/schedule tier. |
 | `RespectOnScreen` | `true` | Never cull an NPC roughly in view. |
 | `ShowFpsCounter` | `false` | Tiny on-screen FPS readout (top-right). |
-| `MoreNpcsAutoCompat` | `true` | Auto-detect MoreNPCs and stabilize it if its build is incompatible (see Compatibility). |
 
 An on-screen HUD, hotkeys (F6-F10) and a `siesta ...` dev console exist only in development builds and
 are not shipped in the release.
@@ -92,11 +89,14 @@ for NPCs you aren't looking at, so it's a safe, free-when-idle optimization.
 ## Compatibility
 
 - Works with any mod that adds NPCs (they all register in the same game NPC registry).
-- **MoreNPCs auto-compat** (`MoreNpcsAutoCompat`, on by default): the CrossCompat/Mono build of
-  *Fannso's MoreNPCs* throws a `TypeLoadException` every frame on a standard (prefixed) IL2CPP install
-  (its NPCs still spawn). Siesta auto-detects this and - **only when that build would actually crash on
-  your install** - neutralizes the crashing per-frame watcher so the game stays stable. MoreNPCs' NPCs
-  are unaffected; it's a no-op when MoreNPCs is absent or already compatible. Turn it off to never apply.
+- If a mod's NPCs do not appear at all, that is not the LOD layer: it hides and pauses NPCs by
+  distance and restores them as you approach, and it never prevents one from spawning. Set
+  `EnableLod = false` in `UserData/MelonPreferences.cfg` to rule it out in one restart.
+- **Fannso's MoreNPCs**: that mod ships a separate build per backend, and its Mono/CrossCompat build
+  has one watcher that cannot run on a standard IL2CPP game. It sits in a per-frame loop, so it
+  throws thousands of times a minute and fills the log. Siesta routes that single call through a
+  guard and stops calling it once it has failed. Everything else MoreNPCs does is untouched. On a
+  matching build nothing ever fails and the watcher runs normally.
 - IL2CPP build only (current Steam public branch).
 
 ## Credits

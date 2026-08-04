@@ -9,7 +9,7 @@ using Siesta.Lod;
 using Snitch.Api;                 // Profiler section timing (Debug + EnableSnitch only; no-op when host absent)
 #endif
 
-[assembly: MelonInfo(typeof(Siesta.Core), "Siesta", "1.2.0", "DooDesch", "https://github.com/DooDesch/ScheduleOne-Siesta")]
+[assembly: MelonInfo(typeof(Siesta.Core), "Siesta", "1.2.1", "DooDesch", "https://github.com/DooDesch-Mods/ScheduleOne-Siesta")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace Siesta
@@ -50,10 +50,10 @@ namespace Siesta
             try { HarmonyInstance.PatchAll(); } catch (Exception e) { Log.Warning("[Siesta] Harmony patch failed: " + e.Message); }
 #endif
 
-            // Optional compat (auto-detect, default ON; opt-out via the MoreNpcsAutoCompat preference): if an
-            // incompatible MoreNPCs build is present, neutralize its per-frame crashing watcher on this IL2CPP
-            // install. Apply() itself only acts when MoreNPCs is detected AND would actually crash here.
-            if (Preferences.MoreNpcsCompat) Compat.MoreNpcsCompat.Apply(HarmonyInstance);
+            // MoreNPCs ships one watcher that cannot run when its build does not match the game's interop, and
+            // it sits in a per-frame loop. Route that single call through a guard that gives up after the first
+            // failure; the rest of MoreNPCs' update loop is left alone.
+            Compat.MoreNpcsCompat.Apply(HarmonyInstance);
 
             // Safety: never let the game serialize a culled/paused NPC, and never leave them culled across a
             // scene change. Restore everything to vanilla first; the next in-world frame re-culls as needed.
@@ -61,9 +61,9 @@ namespace Siesta
             GameLifecycle.OnPreSceneChange += () => LodController.RestoreAll("scene changing");
 
 #if DEBUG
-            Log.Msg("Siesta v1.2.0 (DEBUG) - NPC LOD active. Controls + live counters are in the Snitch panel \"Siesta LOD\".");
+            Log.Msg("Siesta v1.2.1 (DEBUG) - NPC LOD active. Controls + live counters are in the Snitch panel \"Siesta LOD\".");
 #else
-            Log.Msg("Siesta v1.2.0 - NPC LOD active.");
+            Log.Msg("Siesta v1.2.1 - NPC LOD active.");
 #endif
         }
 

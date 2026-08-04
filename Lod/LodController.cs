@@ -27,6 +27,21 @@ namespace Siesta.Lod
         private struct FailInfo { public float RetryAt; public int Count; }
         private static readonly Dictionary<int, FailInfo> _failed = new Dictionary<int, FailInfo>();
 
+        // An NPC joins NPCManager.NPCRegistry in its Awake, but its FishNet spawn happens later - a mod-added NPC
+        // can sit there for up to a second first, and the API that spawns it validates the NPC's component graph
+        // at that moment. Touching one in that window is fatal: SetVisible(false) deactivates the Avatar
+        // GameObject, the validation then finds no active Avatar and the NPC is refused for good. So an NPC only
+        // becomes ours once it is spawned - which is the same gate vanilla puts on its own NPC work.
+        private static bool IsSpawned(NPC npc)
+        {
+            try
+            {
+                var netObj = npc.NetworkObject;   // plain field read; null on an NPC that was never wired up
+                return netObj != null && netObj.IsSpawned;
+            }
+            catch { return false; }
+        }
+
         // True when this NPC should currently be held Full because of a recent wake failure (not yet due for retry,
         // or it has exhausted its retries). A due-for-retry NPC returns false so the normal path re-attempts it.
         private static bool IsFailHeld(int id)
@@ -118,7 +133,7 @@ namespace Siesta.Lod
             {
                 NPC npc;
                 try { npc = reg[i]; } catch { continue; }
-                if (npc == null) continue;
+                if (npc == null || !IsSpawned(npc)) continue;
                 int id;
                 try { id = npc.GetInstanceID(); } catch { continue; }
                 if (IsFailHeld(id)) continue;
@@ -148,7 +163,7 @@ namespace Siesta.Lod
                 NPC npc;
                 try { npc = reg[_cursor]; } catch { _cursor++; continue; }
                 _cursor++;
-                if (npc == null) continue;
+                if (npc == null || !IsSpawned(npc)) continue;
                 Evaluate(npc, authoritative);
             }
 #if SNITCH
@@ -366,7 +381,7 @@ namespace Siesta.Lod
             {
                 NPC npc;
                 try { npc = reg[i]; } catch { continue; }
-                if (npc == null) continue;
+                if (npc == null || !IsSpawned(npc)) continue;
                 int id;
                 try { id = npc.GetInstanceID(); } catch { continue; }
                 if (IsFailHeld(id)) continue;

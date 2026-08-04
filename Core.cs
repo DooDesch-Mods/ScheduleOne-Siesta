@@ -9,7 +9,7 @@ using Siesta.Lod;
 using Snitch.Api;                 // Profiler section timing (Debug + EnableSnitch only; no-op when host absent)
 #endif
 
-[assembly: MelonInfo(typeof(Siesta.Core), "Siesta", "1.2.1", "DooDesch", "https://github.com/DooDesch-Mods/ScheduleOne-Siesta")]
+[assembly: MelonInfo(typeof(Siesta.Core), "Siesta", "1.2.2", "DooDesch", "https://github.com/DooDesch-Mods/ScheduleOne-Siesta")]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
 namespace Siesta
@@ -61,9 +61,9 @@ namespace Siesta
             GameLifecycle.OnPreSceneChange += () => LodController.RestoreAll("scene changing");
 
 #if DEBUG
-            Log.Msg("Siesta v1.2.1 (DEBUG) - NPC LOD active. Controls + live counters are in the Snitch panel \"Siesta LOD\".");
+            Log.Msg("Siesta v1.2.2 (DEBUG) - NPC LOD active. Controls + live counters are in the Snitch panel \"Siesta LOD\".");
 #else
-            Log.Msg("Siesta v1.2.1 - NPC LOD active.");
+            Log.Msg("Siesta v1.2.2 - NPC LOD active.");
 #endif
         }
 

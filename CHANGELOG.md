@@ -3,6 +3,15 @@
 All notable changes to Siesta are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.2] - 2026-08-05
+
+### Fixed
+
+- NPCs added by other mods show up again. Siesta was hiding them in the fraction of a second before
+  the game had finished spawning them, which made the spawn fail and lost the NPC for that session.
+  Measured on a 177-NPC pack: every one of them was refused before, none are now. If you have been
+  missing modded NPCs, this is the one to update for.
+
 ## [1.2.1] - 2026-08-05
 
 ### Fixed

@@ -47,7 +47,7 @@ namespace Siesta
 
 #if DEBUG
             // DEBUG-only dev-console bridge ("siesta ...") for headless A/B measurement via the Schedule1 MCP.
-            try { HarmonyInstance.PatchAll(); } catch (Exception e) { Log.Warning("[Siesta] Harmony patch failed: " + e.Message); }
+            try { HarmonyInstance.PatchAll(); } catch (Exception e) { Log.Warning("Harmony patch failed: " + e.Message); }
 #endif
 
             // MoreNPCs ships one watcher that cannot run when its build does not match the game's interop, and
@@ -142,7 +142,7 @@ namespace Siesta
             }
             catch (Exception e)
             {
-                Log.Warning("[Siesta] onDayPass hook failed: " + e.Message);
+                Log.Warning("onDayPass hook failed: " + e.Message);
             }
         }
 

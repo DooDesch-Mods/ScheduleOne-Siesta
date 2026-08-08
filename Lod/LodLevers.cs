@@ -61,7 +61,7 @@ namespace Siesta.Lod
             }
             catch (Exception e)
             {
-                Core.Log?.Warning("[Siesta] ForceFull failed: " + e.Message);
+                Core.Log?.Warning("ForceFull failed: " + e.Message);
             }
         }
 
@@ -110,7 +110,7 @@ namespace Siesta.Lod
             {
                 // Tripwire: a client must never pause/disable a replica. Controller already gates this; this is
                 // the last-line assert so any regression is loud and a no-op.
-                Core.Log?.Warning($"[Siesta] ERROR client-attempted-deepcull npc={st.Id} (ignored)");
+                Core.Log?.Warning($"ERROR client-attempted-deepcull npc={st.Id} (ignored)");
                 return;
             }
 
@@ -208,7 +208,7 @@ namespace Siesta.Lod
                 NavMeshAgent agent = mv.Agent;
                 if (agent == null)
                 {
-                    Core.Log?.Warning($"[Siesta] WAKE-FAILED npc={st.Id} reason=agent-null");
+                    Core.Log?.Warning($"WAKE-FAILED npc={st.Id} reason=agent-null");
                     return false;
                 }
                 if (!agent.enabled)
@@ -233,12 +233,12 @@ namespace Siesta.Lod
                 mv.Warp(mv.FootPosition);
                 if (agent.isOnNavMesh) return true;
 
-                Core.Log?.Warning($"[Siesta] WAKE-FAILED npc={st.Id} reason=still-off-navmesh");
+                Core.Log?.Warning($"WAKE-FAILED npc={st.Id} reason=still-off-navmesh");
                 return false;
             }
             catch (Exception e)
             {
-                Core.Log?.Warning($"[Siesta] WAKE-FAILED npc={st.Id} reason=exception {e.Message}");
+                Core.Log?.Warning($"WAKE-FAILED npc={st.Id} reason=exception {e.Message}");
                 return false;
             }
         }

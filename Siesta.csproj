@@ -8,6 +8,11 @@
        (where the Workspace repo is checked out to ./Workspace, not ../Workspace) just skips it. -->
   <Import Project="$(MSBuildThisFileDirectory)../Workspace/build/Snitch.props" Condition="Exists('$(MSBuildThisFileDirectory)../Workspace/build/Snitch.props')" />
 
+  <!-- Where a build is allowed to install: the test copy by default, and never a real game installation
+       without saying so out loud. See Workspace/build/Deploy.props. -->
+  <Import Project="$(MSBuildThisFileDirectory)../Workspace/build/Deploy.props" Condition="Exists('$(MSBuildThisFileDirectory)../Workspace/build/Deploy.props')" />
+  <Import Project="$(MSBuildThisFileDirectory)Workspace/build/Deploy.props" Condition="Exists('$(MSBuildThisFileDirectory)Workspace/build/Deploy.props')" />
+
   <!-- CI checks out the shared Workspace repo as a SUBFOLDER of this project, so the SDK's default **/*.cs glob
        would sweep in Workspace/ui, Workspace/build, etc. (uGUI design-system source this mod does not use).
        This mod compiles only its own source - exclude everything under Workspace. No-op locally, where Workspace
@@ -53,7 +58,8 @@
 
     <!-- Workspace lib roots (mirrors Trashville ../Workspace/lib) -->
     <WorkspaceLibPath Condition="'$(WorkspaceLibPath)' == ''">$(MSBuildThisFileDirectory)../Workspace/lib</WorkspaceLibPath>
-    <ModsDirectory Condition="'$(ModsDirectory)' == ''">D:\Launcher\SteamLibrary\steamapps\common\Schedule I\Mods</ModsDirectory>
+    <!-- ModsDirectory comes from Deploy.props (the test copy). Overriding it here would put the default
+         back where it was: pointing at the game the player is playing. -->
   </PropertyGroup>
 
   <!-- Backend selection derived from the active TargetFramework -->

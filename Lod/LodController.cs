@@ -146,7 +146,7 @@ namespace Siesta.Lod
                 if (!shouldBeFull) continue;
 
                 try { LodLevers.ApplyTier(npc, st, LodState.Full, authoritative); }
-                catch (Exception e) { Core.Log?.Warning("[Siesta] promote pre-pass failed: " + e.Message); }
+                catch (Exception e) { Core.Log?.Warning("promote pre-pass failed: " + e.Message); }
             }
 #if SNITCH
             } finally { Profiler.End("Siesta.PromotePass"); }
@@ -209,7 +209,7 @@ namespace Siesta.Lod
                 {
                     st.WakeFailed = false;
                     NoteFailure(id);
-                    Core.Log?.Warning($"[Siesta] NPC {id} wake failed - keeping Full, will retry in {RetryAfterSeconds:F0}s.");
+                    Core.Log?.Warning($"NPC {id} wake failed - keeping Full, will retry in {RetryAfterSeconds:F0}s.");
 #if SNITCH
                     Profiler.Log("Siesta", $"NPC {id} wake failed - kept Full, retry in {RetryAfterSeconds:F0}s.", LogLevel.Warning);
 #endif
@@ -218,7 +218,7 @@ namespace Siesta.Lod
             }
             catch (Exception e)
             {
-                Core.Log?.Warning("[Siesta] ApplyTier failed: " + e.Message);
+                Core.Log?.Warning("ApplyTier failed: " + e.Message);
             }
         }
 
@@ -357,7 +357,7 @@ namespace Siesta.Lod
             }
             catch (Exception e)
             {
-                Core.Log?.Warning("[Siesta] RestoreAll failed: " + e.Message);
+                Core.Log?.Warning("RestoreAll failed: " + e.Message);
             }
         }
 

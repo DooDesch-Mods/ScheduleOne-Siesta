@@ -49,7 +49,7 @@ namespace Siesta.Compat
                     BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
                 if (target == null)
                 {
-                    Core.Log?.Warning("[Siesta] MoreNPCs compat: MoreNPCs.Core.OnUpdate not found - skipped.");
+                    Core.Log?.Warning("MoreNPCs compat: MoreNPCs.Core.OnUpdate not found - skipped.");
                     return;
                 }
 
@@ -58,7 +58,7 @@ namespace Siesta.Compat
             }
             catch (Exception e)
             {
-                Core.Log?.Warning("[Siesta] MoreNPCs compat failed: " + e.Message);
+                Core.Log?.Warning("MoreNPCs compat failed: " + e.Message);
             }
         }
 
@@ -84,7 +84,7 @@ namespace Siesta.Compat
             }
 
             // MoreNPCs changed its update loop - leave it exactly as it is rather than guess.
-            Core.Log?.Msg("[Siesta] MoreNPCs compat: no " + WatcherType + "." + WatcherMethod
+            Core.Log?.Msg("MoreNPCs compat: no " + WatcherType + "." + WatcherMethod
                 + " call in OnUpdate - nothing to guard, MoreNPCs left untouched.");
             return code;
         }
@@ -102,7 +102,7 @@ namespace Siesta.Compat
             catch (Exception e)
             {
                 _givenUp = true;
-                Core.Log?.Warning("[Siesta] MoreNPCs' " + WatcherType + " cannot run on this install ("
+                Core.Log?.Warning("MoreNPCs' " + WatcherType + " cannot run on this install ("
                     + e.GetType().Name + ") - Siesta will not call it again this session. This usually means the"
                     + " CrossCompat/Mono MoreNPCs build is installed on a standard IL2CPP game; the rest of"
                     + " MoreNPCs is unaffected.");

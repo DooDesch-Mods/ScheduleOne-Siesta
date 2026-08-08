@@ -2,6 +2,8 @@
 
 > 🛟 **Need help or found a bug?** Get support at [support.doodesch.de/siesta](https://support.doodesch.de/siesta).
 
+📖 **Documentation:** [docs.doodesch.de/mods/siesta/](https://docs.doodesch.de/mods/siesta/)
+
 > Big crowds tanking your frames? Siesta puts off-screen, far-away NPCs to sleep - hiding them
 > and pausing their movement and schedule - then wakes them cleanly as you get close. Works on
 > every NPC in the world, including ones added by other mods. Built on

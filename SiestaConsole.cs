@@ -16,6 +16,7 @@ namespace Siesta
     ///   deep       -> pin all eligible to Deep (movement + schedule paused, host-gated)
     ///   restore    -> restore everything to vanilla and hold at Full
     ///   status     -> log tier counts + fps + mode
+    ///   bounds     -> how many avatars still have a live LOD-bounds refresh timer
     /// </summary>
     internal static class SiestaConsole
     {
@@ -62,9 +63,10 @@ namespace Siesta
                     case "restore": LodController.RestoreAll("console restore"); LodController.Mode = LodController.Control.ForceFull; Log("restored all -> ForceFull"); break;
                     case "status": Status(); break;
                     case "why": Log("deep-cull reasons: " + LodRegistry.ReasonTally()); break;
+                    case "bounds": BoundsUpdaters(); break;
                     case "bex": Exemptions.ExemptOnAnyBehaviour = BoolArg(p, 2, !Exemptions.ExemptOnAnyBehaviour); Log("ExemptOnAnyBehaviour = " + Exemptions.ExemptOnAnyBehaviour); break;
                     case "gather": Gather(p); break;
-                    default: Log($"unknown '{cmd}'. Use: off|auto|cosmetic|deep|restore|status|why|bex|gather <m>"); break;
+                    default: Log($"unknown '{cmd}'. Use: off|auto|cosmetic|deep|restore|status|why|bounds|bex|gather <m>"); break;
                 }
             }
             catch (Exception e)
@@ -126,6 +128,37 @@ namespace Siesta
             // Pin to Full so Siesta keeps them all rendered (no culling) for the held cost measurement.
             LodController.Mode = LodController.Control.ForceFull;
             Log($"gather: warped + HELD {moved}/{n} NPCs at a ~{dist:F0}m ring (failed {failed}), pinned Full. FPS now reflects {moved} NPCs at {dist:F0}m. Release: siesta restore | auto.");
+        }
+
+        /// <summary>
+        /// How many avatars still have a running LOD-bounds refresh.
+        ///
+        /// <c>AvatarLODBoundsUpdater</c> sits on the avatar GameObject and arms its only timer in Awake
+        /// (<c>InvokeRepeating("InfrequentUpdate", ..., 1f)</c>), and Awake does not run a second time. Since
+        /// the cosmetic tier hides an NPC by deactivating exactly that object, the obvious worry is that the
+        /// timer dies with it and the bounds then never refresh again - which would show up only when a
+        /// corpse is dragged, because the updater ignores anything that is not a moved ragdoll.
+        ///
+        /// IT DOES NOT. Two full hide/show cycles over 134 avatars, 128 of them deactivated at once, left
+        /// `active-DEAD` at zero every time - the invoke survives deactivation and keeps running afterwards.
+        /// The command stays because that answer is worth being able to re-check on a new game build rather
+        /// than re-deriving from forum lore, which is what pointed the wrong way in the first place.
+        /// </summary>
+        private static void BoundsUpdaters()
+        {
+            // includeInactive: the hidden avatars are the whole question, and the default overload skips them.
+            var updaters = UnityEngine.Object.FindObjectsOfType<Il2CppScheduleOne.AvatarFramework.AvatarLODBoundsUpdater>(true);
+            int liveActive = 0, deadActive = 0, inactive = 0;
+
+            for (int i = 0; i < updaters.Length; i++)
+            {
+                var u = updaters[i];
+                if (u == null) continue;
+                if (!u.gameObject.activeInHierarchy) { inactive++; continue; }
+                if (u.IsInvoking("InfrequentUpdate")) liveActive++; else deadActive++;
+            }
+
+            Log($"bounds updaters: total={updaters.Length} active-armed={liveActive} active-DEAD={deadActive} hidden={inactive}");
         }
 
         private static void Status()

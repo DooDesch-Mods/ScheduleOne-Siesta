@@ -1,7 +1,7 @@
 {
   "name": "Siesta",
   "version_number": "1.2.0",
-  "website_url": "https://github.com/DooDesch/ScheduleOne-Siesta",
+  "website_url": "https://github.com/DooDesch-Mods/ScheduleOne-Siesta",
   "description": "Distant NPCs take a siesta so your FPS doesn't - distance/visibility LOD for all NPCs.",
   "dependencies": [
     "LavaGang-MelonLoader-0.7.3",

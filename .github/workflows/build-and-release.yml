@@ -275,8 +275,10 @@ jobs:
       # Discord renders a `release` webhook as an empty box - no title, no version, no notes. So the embed is
       # built here, where the version and the changelog section are already known. Skipped when the secret is
       # not set, so a fork or a repo without the feed just builds and releases.
+      # Set the repository variable ANNOUNCE_DISCORD to 'false' to ship a release without a feed post; the
+      # secret has to stay, because `gh secret` cannot read a value back to restore it afterwards.
       - name: Announce the release in Discord
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && vars.ANNOUNCE_DISCORD != 'false' }}
         env:
           WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
           VERSION: ${{ needs.build.outputs.version }}

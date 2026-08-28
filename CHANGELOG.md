@@ -3,6 +3,17 @@
 All notable changes to Siesta are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.3] - 2026-08-28
+
+### Fixed
+
+- Log spam and stutter gone: an NPC that failed to come back was retried every frame, 231 errors in
+  ten seconds. It is reported once now.
+- NPCs no longer freeze in place or stay invisible. An error while restoring one made Siesta forget
+  what it had switched off, and it never switched it back on.
+- Spinning the camera in a crowd used to restore every NPC coming back into view in the same frame.
+  They now share the `BudgetPerFrame` limit (32).
+
 ## [1.2.2] - 2026-08-05
 
 ### Fixed

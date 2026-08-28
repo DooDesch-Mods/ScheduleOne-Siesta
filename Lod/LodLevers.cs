@@ -61,7 +61,7 @@ namespace Siesta.Lod
             }
             catch (Exception e)
             {
-                Core.Log?.Warning("ForceFull failed: " + e.Message);
+                LodLog.Vanilla("ForceFull", st.Id, e);
             }
         }
 
@@ -69,7 +69,11 @@ namespace Siesta.Lod
 
         private static void Hide(NPC npc, NpcModState st, bool authoritative)
         {
-            npc.SetVisible(false, false);   // networked:false -> local-only, replicates nothing
+            // Claim ownership before the call: if SetVisible throws half-way the NPC may already be hidden, and
+            // a lost flag would mean nothing ever shows it again.
+            st.Hidden = true;
+            try { npc.SetVisible(false, false); }   // networked:false -> local-only, replicates nothing
+            catch (Exception e) { LodLog.Vanilla("SetVisible(false)", st.Id, e); }
             // On the host SetVisible(false) also disables the NavMeshAgent + the interaction collider. Cosmetic
             // must keep the NPC simulating (it isn't a Deep cull), so re-enable both when authoritative. This is
             // host-only and networked:false, so it cannot desync clients.
@@ -86,20 +90,20 @@ namespace Siesta.Lod
                 }
                 catch { /* missing movement -> leave as the game left it */ }
             }
-            st.Hidden = true;
         }
 
         private static void Show(NPC npc, NpcModState st)
         {
             // Defer to the game when it owns visibility (entering a building / vehicle re-shows the NPC itself);
             // calling SetVisible(true) then would pop the model on inside a wall or car. Clear st.Hidden either way.
+            st.Hidden = false;
             bool gameOwnsVisibility = false;
             try { gameOwnsVisibility = npc.isInBuilding || npc.IsInVehicle; } catch { }
             if (!gameOwnsVisibility)
             {
-                npc.SetVisible(true, false);
+                try { npc.SetVisible(true, false); }
+                catch (Exception e) { LodLog.Vanilla("SetVisible(true)", st.Id, e); }
             }
-            st.Hidden = false;
         }
 
         // ----- deep (host-authoritative only) -----
@@ -134,8 +138,12 @@ namespace Siesta.Lod
             NPCScheduleManager sm = st.Schedule;
             if (sm != null && sm.ScheduleEnabled)
             {
-                sm.DisableSchedule();
+                // DisableSchedule clears ScheduleEnabled and THEN interrupts the active action, which runs vanilla
+                // event code that can throw. Record the flag first: the schedule is off either way, and dropping
+                // the flag would leave this NPC with a disabled schedule - inert - for the rest of the session.
                 st.WeDisabledSchedule = true;
+                try { sm.DisableSchedule(); }
+                catch (Exception e) { LodLog.Vanilla("DisableSchedule", st.Id, e); }
             }
 
             // The real per-NPC perf lever: throttle the 10Hz vision/awareness sweep (the game itself does this on
@@ -176,8 +184,9 @@ namespace Siesta.Lod
             NPCMovement mv = npc.Movement;
             if (st.WePausedMovement && mv != null)
             {
-                mv.ResumeMovement();
                 st.WePausedMovement = false;
+                try { mv.ResumeMovement(); }
+                catch (Exception e) { LodLog.Vanilla("ResumeMovement", st.Id, e); }
                 // RepairNavMesh re-enables the agent and re-seats it on the navmesh. If it cannot, keep the NPC
                 // Full (don't re-evaluate the schedule against an unplaced agent) and let the controller exempt it.
                 if (!RepairNavMesh(npc, mv, st))
@@ -191,9 +200,19 @@ namespace Siesta.Lod
             NPCScheduleManager sm = st.Schedule;
             if (st.WeDisabledSchedule && sm != null)
             {
-                sm.EnableSchedule();
-                sm.EnforceState(false);   // re-select + start the action that should be active now (agent is live)
+                // EnableSchedule sets ScheduleEnabled and THEN ticks the schedule, and that tick starts the active
+                // NPC event - vanilla code that can NRE on a stale reference (NPCEvent_CartelGoonExit does it the
+                // moment its goon pool is gone). The schedule is on either way, so clear the flag BEFORE the call
+                // and let the throw stop here. Letting it escape aborted the transition with st.Tier unchanged,
+                // and the next frame's pass re-ran the identical failing wake: one throw, and one MelonLoader
+                // IL2CPP stack trace to console and disk, per frame for as long as the NPC stayed in range.
                 st.WeDisabledSchedule = false;
+                try
+                {
+                    sm.EnableSchedule();
+                    sm.EnforceState(false);   // re-select + start the action that should be active now (agent is live)
+                }
+                catch (Exception e) { LodLog.Vanilla("EnableSchedule", st.Id, e); }
             }
 
             st.DeepApplied = false;

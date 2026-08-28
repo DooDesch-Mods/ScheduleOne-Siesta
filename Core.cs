@@ -175,7 +175,11 @@ namespace Siesta
                 float meanFps = _teleFrames / _teleElapsed;
                 float minFps = _teleMaxDt > 0f ? 1f / _teleMaxDt : 0f;
                 LodRegistry.CountByTier(out int f, out int c, out int d);
-                Log.Msg($"[telemetry] fps={meanFps:F0} (min {minFps:F0})  npcs={f + c + d}  full={f} cosmetic={c} deep={d}");
+                // Throws out of game code are logged once and counted after that (LodLog); this is where the
+                // counts surface, so a fault that repeats every frame is still visible without the stack traces.
+                string threw = LodLog.Tally();
+                Log.Msg($"[telemetry] fps={meanFps:F0} (min {minFps:F0})  npcs={f + c + d}  full={f} cosmetic={c} deep={d}"
+                    + (threw == null ? "" : "  threw: " + threw));
             }
             catch { }
             finally { _teleElapsed = 0f; _teleFrames = 0; _teleMaxDt = 0f; }

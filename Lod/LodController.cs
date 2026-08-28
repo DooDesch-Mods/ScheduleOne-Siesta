@@ -116,15 +116,23 @@ namespace Siesta.Lod
             RefreshCamera();
             bool authoritative = Net.IsAuthoritative();
 
-            // Unbudgeted promote-only pre-pass: every frame, cheaply scan ALL NPCs and immediately promote any that
-            // should be Full (close OR on-screen) but currently are not. This kills the re-promotion latency of the
-            // budgeted round-robin (a fast 180deg turn would otherwise leave a now-visible NPC hidden/paused for up
-            // to ceil(N/Budget) frames). One Vector3 subtract + dot per NPC - trivial vs the navmesh/animation cost
-            // it removes. Demotion + exemption work stays on the budgeted cursor below.
+            // Promote-only pre-pass: every frame, cheaply scan ALL NPCs and immediately promote any that should be
+            // Full (close OR on-screen) but currently are not. This kills the re-promotion latency of the budgeted
+            // round-robin (a fast 180deg turn would otherwise leave a now-visible NPC hidden/paused for up to
+            // ceil(N/Budget) frames). Demotion + exemption work stays on the budgeted cursor below.
+            //
+            // The SCAN is cheap (one subtract + dot per NPC), but each promotion it performs is a real wake:
+            // ResumeMovement, a navmesh re-seat, EnableSchedule and EnforceState - and EnforceState issues a
+            // path request. The on-screen guard is a 60deg cone with no range limit, so one 180deg turn puts
+            // most of the town back inside it at once; unbudgeted, that ran up to 200 wakes in a single frame.
+            // NPCs actually within cosmetic distance still promote immediately - that set is bounded by geometry
+            // and is the latency this pre-pass exists to remove. The far ones, Full only because they fell in the
+            // cone, share the same per-frame budget the demotion pass uses and catch up over the next few frames.
             float cosPromote = Preferences.CosmeticDistance * Preferences.CosmeticDistance;
             bool respectOnScreen = Preferences.RespectOnScreen;
-            // Snitch (Debug): time the unbudgeted O(N) promote pre-pass apart from the budgeted round-robin so the
-            // profiler shows where the (tiny, expected) LOD-sim cost actually lives.
+            int promoteBudget = Preferences.BudgetPerFrame;
+            // Snitch (Debug): time the O(N) promote pre-pass apart from the budgeted round-robin so the profiler
+            // shows where the (tiny, expected) LOD-sim cost actually lives.
 #if SNITCH
             Profiler.Begin("Siesta.PromotePass");
             try {
@@ -142,11 +150,29 @@ namespace Siesta.Lod
 
                 Vector3 pp;
                 try { pp = npc.CenterPoint; } catch { continue; }
-                bool shouldBeFull = MinSqrDistToPlayer(pp) < cosPromote || (respectOnScreen && IsOnScreen(pp));
-                if (!shouldBeFull) continue;
+                if (MinSqrDistToPlayer(pp) >= cosPromote)
+                {
+                    // Far: only the on-screen guard is keeping it Full, and that is the case that arrives in
+                    // whole-population bursts. Spend the budget; whatever is left over is picked up next frame
+                    // (and by the budgeted cursor below regardless).
+                    if (!respectOnScreen || !IsOnScreen(pp)) continue;
+                    if (promoteBudget <= 0) continue;
+                    promoteBudget--;
+                }
 
-                try { LodLevers.ApplyTier(npc, st, LodState.Full, authoritative); }
-                catch (Exception e) { Core.Log?.Warning("promote pre-pass failed: " + e.Message); }
+                try
+                {
+                    LodLevers.ApplyTier(npc, st, LodState.Full, authoritative);
+                    if (st.WakeFailed) HandleWakeFailure(npc, st, id);
+                }
+                catch (Exception e)
+                {
+                    // ApplyTier guards every call into game code, so reaching here means one of OUR steps broke.
+                    // Arm the backoff either way: without it this NPC is retried on the very next frame, forever.
+                    LodLog.Vanilla("promote pre-pass", id, e);
+                    NoteFailure(id);
+                    LodLevers.ForceFull(npc, st);
+                }
             }
 #if SNITCH
             } finally { Profiler.End("Siesta.PromotePass"); }
@@ -205,21 +231,27 @@ namespace Siesta.Lod
             try
             {
                 LodLevers.ApplyTier(npc, st, desired, authoritative);
-                if (st.WakeFailed)
-                {
-                    st.WakeFailed = false;
-                    NoteFailure(id);
-                    Core.Log?.Warning($"NPC {id} wake failed - keeping Full, will retry in {RetryAfterSeconds:F0}s.");
-#if SNITCH
-                    Profiler.Log("Siesta", $"NPC {id} wake failed - kept Full, retry in {RetryAfterSeconds:F0}s.", LogLevel.Warning);
-#endif
-                    LodLevers.ForceFull(npc, st);
-                }
+                if (st.WakeFailed) HandleWakeFailure(npc, st, id);
             }
             catch (Exception e)
             {
-                Core.Log?.Warning("ApplyTier failed: " + e.Message);
+                LodLog.Vanilla("ApplyTier", id, e);
+                NoteFailure(id);
+                LodLevers.ForceFull(npc, st);
             }
+        }
+
+        /// <summary>A wake left the agent off-navmesh: keep the NPC Full and arm the retry backoff, so the same
+        /// failing wake is not attempted again on the very next frame.</summary>
+        private static void HandleWakeFailure(NPC npc, NpcModState st, int id)
+        {
+            st.WakeFailed = false;
+            NoteFailure(id);
+            Core.Log?.Warning($"NPC {id} wake failed - keeping Full, will retry in {RetryAfterSeconds:F0}s.");
+#if SNITCH
+            Profiler.Log("Siesta", $"NPC {id} wake failed - kept Full, retry in {RetryAfterSeconds:F0}s.", LogLevel.Warning);
+#endif
+            LodLevers.ForceFull(npc, st);
         }
 
         /// <summary>Distance band with hysteresis (promote inside the threshold, demote only past threshold+margin),
@@ -357,13 +389,14 @@ namespace Siesta.Lod
             }
             catch (Exception e)
             {
-                Core.Log?.Warning("RestoreAll failed: " + e.Message);
+                LodLog.Vanilla("RestoreAll", 0, e);
             }
         }
 
         internal static void Reset()
         {
             LodRegistry.Reset();
+            LodLog.Reset();   // instance ids are re-issued with the next scene; the old tallies say nothing about it
             _failed.Clear();
             _cursor = 0;
             _cam = null;

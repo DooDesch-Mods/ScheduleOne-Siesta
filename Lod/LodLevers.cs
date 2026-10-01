@@ -69,6 +69,12 @@ namespace Siesta.Lod
 
         private static void Hide(NPC npc, NpcModState st, bool authoritative)
         {
+            // An NPC the game already hides (a supplier between meetings, say) is not ours: hiding it again and
+            // later calling Show would reveal it where the game never meant it to be seen.
+            bool visible = true;
+            try { visible = npc.isVisible; } catch { }
+            if (!visible) return;
+
             // Claim ownership before the call: if SetVisible throws half-way the NPC may already be hidden, and
             // a lost flag would mean nothing ever shows it again.
             st.Hidden = true;

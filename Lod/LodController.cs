@@ -37,7 +37,10 @@ namespace Siesta.Lod
             try
             {
                 var netObj = npc.NetworkObject;   // plain field read; null on an NPC that was never wired up
-                return netObj != null && netObj.IsSpawned;
+                // It must be the NPC's own. An NPC created before it has a NetworkObject of its own (S1API adds one
+                // just before the spawn) caches its PARENT's, the already-spawned @Managers/@NPCs, which reads as
+                // spawned. Seen with The Big Pimpin's escorts on the second load of a session.
+                return netObj != null && netObj.IsSpawned && netObj.gameObject == npc.gameObject;
             }
             catch { return false; }
         }

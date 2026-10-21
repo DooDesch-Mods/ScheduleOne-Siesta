@@ -22,6 +22,8 @@ namespace Siesta.Lod
         internal bool WePausedMovement;    // we (not the game) paused movement
         internal bool WeDisabledSchedule;  // we (not the game) disabled the schedule
         internal bool WeDisabledAwareness; // we (not the game) throttled the vision/awareness sweep
+        internal bool MoveThrottled;       // its NPCMovement.FixedUpdate runs at MoveThrottle.Interval
+        internal bool ThrottledWhileStuck; // throttled although near: it stands on a destination it cannot path to
         internal bool WakeFailed;          // a wake left the agent off-navmesh -> controller marks permanent-exempt
         internal string ExemptReason;      // last deep-cull eligibility result (null = eligible) - diagnostics only
 

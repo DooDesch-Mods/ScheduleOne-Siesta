@@ -73,6 +73,7 @@ under `Siesta_01_Main`. Changes apply live.
 | `UseCosmeticCull` | `true` | Enable the hide tier. |
 | `UseDeepCull` | `true` | Enable the pause-movement/schedule tier. |
 | `RespectOnScreen` | `true` | Never cull an NPC roughly in view. |
+| `ThrottleFarMovement` | `true` | Far NPCs, and NPCs stuck on a spot they cannot reach, check their walk 5 times a second instead of every physics step (host only). |
 | `ShowFpsCounter` | `false` | Tiny on-screen FPS readout (top-right). |
 
 An on-screen HUD, hotkeys (F6-F10) and a `siesta ...` dev console exist only in development builds and
@@ -86,6 +87,13 @@ by its distance to the nearest player and whether it's on screen:
 - **Full** - near, on screen, or doing something important: vanilla, nothing changed.
 - **Cosmetic** - off screen and mid-distance: renderer hidden (saves animation/draw), AI keeps running.
 - **Deep** - off screen and far, and safe to pause: also pauses movement + schedule (host only).
+
+Two fixes run for every NPC, whatever its tier (host only):
+
+- An NPC that is far away, or that stands on a spot it cannot reach, checks its walk 5 times a second
+  instead of every physics step. A stuck NPC plans its whole path again in each check.
+- An NPC on its way into a building does not ask for its path to the door again while that path is
+  still being worked out.
 
 The win scales with how many NPCs are far from you - it's biggest in NPC-dense saves and small in a
 sparse spot, because NPC simulation isn't always the dominant frame cost. Siesta only ever removes work
@@ -102,6 +110,11 @@ for NPCs you aren't looking at, so it's a safe, free-when-idle optimization.
   throws thousands of times a minute and fills the log. Siesta routes that single call through a
   guard and stops calling it once it has failed. Everything else MoreNPCs does is untouched. On a
   matching build nothing ever fails and the watcher runs normally.
+- **More NPCs / More NPCs Forked**: it looks up its dealers and its office listing boards by searching every
+  object of the scene, which froze the game for up to 6 s. Siesta hands it the same dealers from the
+  game's NPC list and finds the boards with one quick lookup. Its 110 extra NPCs also made the stuck-NPC
+  path planning above cost most of each frame. Right after loading a save the game still runs slowly for
+  up to a minute while the extra NPCs settle in.
 - IL2CPP build only (current Steam public branch).
 
 ## Credits

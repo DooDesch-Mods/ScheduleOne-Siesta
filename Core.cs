@@ -54,6 +54,14 @@ namespace Siesta
             // it sits in a per-frame loop. Route that single call through a guard that gives up after the first
             // failure; the rest of MoreNPCs' update loop is left alone.
             Compat.MoreNpcsCompat.Apply(HarmonyInstance);
+            // More NPCs searches the whole scene for its dealers and its listing boards; give it the same objects
+            // from the NPC registry and a native lookup instead.
+            Compat.MoreNpcsScanCompat.Apply(HarmonyInstance);
+
+            // Far NPCs check their destination a few times a second instead of every physics step.
+            MoveThrottle.Apply(HarmonyInstance);
+            // NPCs walking to a building do not re-ask for the door path while that path is still computed.
+            Compat.StayInBuildingRepath.Apply(HarmonyInstance);
 
             // Safety: never let the game serialize a culled/paused NPC, and never leave them culled across a
             // scene change. Restore everything to vanilla first; the next in-world frame re-culls as needed.
@@ -61,9 +69,9 @@ namespace Siesta
             GameLifecycle.OnPreSceneChange += () => LodController.RestoreAll("scene changing");
 
 #if DEBUG
-            Log.Msg("Siesta v1.2.2 (DEBUG) - NPC LOD active. Controls + live counters are in the Snitch panel \"Siesta LOD\".");
+            Log.Msg("Siesta v" + DooDesch.ModVersion.Current + " (DEBUG) - NPC LOD active. Controls + live counters are in the Snitch panel \"Siesta LOD\".");
 #else
-            Log.Msg("Siesta v1.2.2 - NPC LOD active.");
+            Log.Msg("Siesta v" + DooDesch.ModVersion.Current + " - NPC LOD active.");
 #endif
         }
 
@@ -178,8 +186,13 @@ namespace Siesta
                 // Throws out of game code are logged once and counted after that (LodLog); this is where the
                 // counts surface, so a fault that repeats every frame is still visible without the stack traces.
                 string threw = LodLog.Tally();
+                MoveThrottle.TakeTally(out int ran, out int skipped);
                 Log.Msg($"[telemetry] fps={meanFps:F0} (min {minFps:F0})  npcs={f + c + d}  full={f} cosmetic={c} deep={d}"
+                    + $"  throttled={MoveThrottle.Count} (steps run {ran}, skipped {skipped})"
                     + (threw == null ? "" : "  threw: " + threw));
+#if DEBUG
+                Log.Msg("[telemetry] " + Compat.StayInBuildingRepath.TakeStats());
+#endif
             }
             catch { }
             finally { _teleElapsed = 0f; _teleFrames = 0; _teleMaxDt = 0f; }

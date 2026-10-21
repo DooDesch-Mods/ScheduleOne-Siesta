@@ -3,6 +3,22 @@
 All notable changes to Siesta are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-10-21
+
+### Added
+
+- `ThrottleFarMovement` (on by default, host only): distant NPCs and NPCs stuck on a spot they cannot reach
+  check their movement 5 times a second instead of every physics step.
+
+### Fixed
+
+- More NPCs Forked: 54-60 FPS instead of 2-11 on a test save. Its extra NPCs got stuck and re-planned their
+  path on every physics step.
+  - Right after loading a save it can still be slow for up to a minute.
+- More NPCs Forked: its search for dealers and office boards froze the game for up to 6 s. Now it is a single
+  pause of about a second.
+- Distant NPCs pause their walk again on game version 0.4.7, which removed the pause Siesta 1.2.3 used.
+
 ## [1.2.3] - 2026-08-28
 
 ### Fixed

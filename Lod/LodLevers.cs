@@ -57,6 +57,7 @@ namespace Siesta.Lod
             {
                 if (st.DeepApplied) RestoreDeep(npc, st);
                 if (st.Hidden) Show(npc, st);
+                if (st.MoveThrottled) { MoveThrottle.Release(npc.Movement); st.MoveThrottled = false; st.ThrottledWhileStuck = false; }
                 st.Tier = LodState.Full;
             }
             catch (Exception e)
@@ -81,14 +82,11 @@ namespace Siesta.Lod
             {
                 try
                 {
-                    NPCMovement mv = npc.Movement;
-                    if (mv != null)
-                    {
-                        mv.SetAgentEnabled(true);
-                        mv.VisibilityChange(true);   // restore the CapsuleCollider the SetVisible(false) dropped
-                    }
+                    // The game's own visibility handler: on the server it re-enables the agent and the
+                    // CapsuleCollider that SetVisible(false) just dropped.
+                    npc.Movement?.OnVisibilityChange(true);
                 }
-                catch { /* missing movement -> leave as the game left it */ }
+                catch (Exception e) { LodLog.Vanilla("OnVisibilityChange(true)", st.Id, e); }
             }
         }
 
@@ -121,18 +119,18 @@ namespace Siesta.Lod
             NPCMovement mv = npc.Movement;
             // Only pause a live, on-navmesh agent (this runs while the agent is still enabled - Hide comes after,
             // see ApplyTier). Pausing an off-navmesh/disabled agent is what produced the wake-time error spam.
-            if (mv != null && !mv.IsPaused)
+            if (mv != null && !IsPaused(mv))
             {
                 try
                 {
-                    NavMeshAgent agent = mv.Agent;
+                    NavMeshAgent agent = mv._agent;
                     if (agent != null && agent.enabled && agent.isOnNavMesh)
                     {
-                        mv.PauseMovement();
+                        Pause(mv, agent);
                         st.WePausedMovement = true;
                     }
                 }
-                catch { /* no agent / off navmesh -> skip the pause, awareness + schedule still apply */ }
+                catch (Exception e) { LodLog.Vanilla("pause movement", st.Id, e); }
             }
 
             NPCScheduleManager sm = st.Schedule;
@@ -185,8 +183,8 @@ namespace Siesta.Lod
             if (st.WePausedMovement && mv != null)
             {
                 st.WePausedMovement = false;
-                try { mv.ResumeMovement(); }
-                catch (Exception e) { LodLog.Vanilla("ResumeMovement", st.Id, e); }
+                try { Resume(mv); }
+                catch (Exception e) { LodLog.Vanilla("resume movement", st.Id, e); }
                 // RepairNavMesh re-enables the agent and re-seats it on the navmesh. If it cannot, keep the NPC
                 // Full (don't re-evaluate the schedule against an unplaced agent) and let the controller exempt it.
                 if (!RepairNavMesh(npc, mv, st))
@@ -218,13 +216,38 @@ namespace Siesta.Lod
             st.DeepApplied = false;
         }
 
+        // 0.4.7 removed NPCMovement.PauseMovement/ResumeMovement/IsPaused; speed is a priority stack now. A pause is
+        // an absolute speed of 0 above everything else, plus a stopped agent so the NPC halts at once instead of
+        // coasting to the end of its path. The path itself stays, so a resume walks on from where it stood.
+        private const string PauseControl = "siesta_pause";
+
+        internal static bool IsPaused(NPCMovement mv)
+        {
+            NPCSpeedController sc = mv.SpeedController;
+            return sc != null && sc.DoesSpeedControlExist(PauseControl);
+        }
+
+        private static void Pause(NPCMovement mv, NavMeshAgent agent)
+        {
+            mv.SpeedController?.AddSpeedControl(PauseControl, 0f, int.MaxValue, SpeedControl.EType.Absolute);
+            agent.isStopped = true;
+            agent.velocity = Vector3.zero;
+        }
+
+        private static void Resume(NPCMovement mv)
+        {
+            mv.SpeedController?.RemoveSpeedControl(PauseControl);
+            NavMeshAgent agent = mv._agent;
+            if (agent != null && agent.enabled && agent.isOnNavMesh) agent.isStopped = false;
+        }
+
         /// <summary>Ensure the agent is live and on the NavMesh after a resume (EnforceState may have warped the
         /// transform). Returns false if the agent cannot be placed - the controller then keeps the NPC Full.</summary>
         private static bool RepairNavMesh(NPC npc, NPCMovement mv, NpcModState st)
         {
             try
             {
-                NavMeshAgent agent = mv.Agent;
+                NavMeshAgent agent = mv._agent;
                 if (agent == null)
                 {
                     Core.Log?.Warning($"WAKE-FAILED npc={st.Id} reason=agent-null");

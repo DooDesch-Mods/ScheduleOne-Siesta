@@ -146,11 +146,16 @@ namespace Siesta.Lod
                 try { id = npc.GetInstanceID(); } catch { continue; }
                 if (IsFailHeld(id)) continue;
                 NpcModState st = LodRegistry.GetOrAdd(id, npc);
-                if (st.Tier == LodState.Full) continue;
+                if (st.Tier == LodState.Full && !st.MoveThrottled) continue;
 
                 Vector3 pp;
                 try { pp = npc.CenterPoint; } catch { continue; }
-                if (MinSqrDistToPlayer(pp) >= cosPromote)
+                bool near = MinSqrDistToPlayer(pp) < cosPromote;
+                // A throttled NPC that comes close steps at the engine's rate again in this very frame. One that is
+                // throttled because it stands stuck stays so; the budgeted pass releases it once it moves again.
+                if (near && st.MoveThrottled && !st.ThrottledWhileStuck) ReleaseThrottle(npc, st);
+                if (st.Tier == LodState.Full) continue;
+                if (!near)
                 {
                     // Far: only the on-screen guard is keeping it Full, and that is the case that arrives in
                     // whole-population bursts. Spend the budget; whatever is left over is picked up next frame
@@ -224,6 +229,7 @@ namespace Siesta.Lod
 
             float d2 = MinSqrDistToPlayer(pos);
             bool onScreen = IsOnScreen(pos);
+            UpdateThrottle(npc, st, d2, authoritative);
 
             LodState desired = Decide(npc, st, d2, onScreen, authoritative);
             if (desired == st.Tier) return;
@@ -239,6 +245,68 @@ namespace Siesta.Lod
                 NoteFailure(id);
                 LodLevers.ForceFull(npc, st);
             }
+        }
+
+        /// <summary>Movement throttle by distance alone: an NPC past the cosmetic distance (plus hysteresis) steps its
+        /// NPCMovement at MoveThrottle.Interval, on screen or not; inside the cosmetic distance it steps every physics
+        /// step again. Only the server runs that method's body, police keep full rate for pursuits, and a ragdolled
+        /// NPC keeps full rate because its recovery timer counts physics steps.</summary>
+        private static void UpdateThrottle(NPC npc, NpcModState st, float d2, bool authoritative)
+        {
+            bool want = false;
+            if (authoritative && Preferences.ThrottleFarMovement && !MoveThrottle.Off && st.Officer == null)
+            {
+                float cos = Preferences.CosmeticDistance;
+                float edge = st.MoveThrottled ? cos : cos + Preferences.Hysteresis;
+                // Far NPCs, and near ones that stand on a destination they cannot path to: those re-plan the path
+                // in every physics step while standing still, so a slower re-plan cannot be seen.
+                bool far = d2 >= edge * edge;
+                bool stuck = !far && IsStuckOnDestination(npc, st);
+                st.ThrottledWhileStuck = stuck;
+                if (far || stuck)
+                {
+                    bool ragdolled = true;
+                    try { ragdolled = npc.Avatar != null && npc.Avatar.Ragdolled; }
+                    catch (Exception e) { LodLog.Vanilla("Avatar.Ragdolled", st.Id, e); }
+                    want = !ragdolled;
+                }
+            }
+            if (want == st.MoveThrottled) return;
+            if (!want) { ReleaseThrottle(npc, st); return; }
+            try
+            {
+                NPCMovement mv = npc.Movement;
+                if (mv == null) return;
+                MoveThrottle.Throttle(mv);
+                st.MoveThrottled = MoveThrottle.IsThrottled(mv);
+            }
+            catch (Exception e) { LodLog.Vanilla("throttle movement", st.Id, e); }
+        }
+
+        /// <summary>The state in which vanilla <c>NPCMovement.UpdateDestination</c> calls <c>SetDestination</c> again in
+        /// every physics step: a destination, no movement, no path being computed, free to move, not on a ladder.</summary>
+        private static bool IsStuckOnDestination(NPC npc, NpcModState st)
+        {
+            try
+            {
+                NPCMovement mv = npc.Movement;
+                if (mv == null || !mv._hasDestination || mv.IsMoving || !mv.CanMove || mv.IsOnLadder) return false;
+                var agent = mv._agent;
+                return agent != null && !agent.pathPending;
+            }
+            catch (Exception e)
+            {
+                LodLog.Vanilla("movement state", st.Id, e);
+                return false;
+            }
+        }
+
+        private static void ReleaseThrottle(NPC npc, NpcModState st)
+        {
+            st.MoveThrottled = false;
+            st.ThrottledWhileStuck = false;
+            try { MoveThrottle.Release(npc.Movement); }
+            catch (Exception e) { LodLog.Vanilla("release movement throttle", st.Id, e); }
         }
 
         /// <summary>A wake left the agent off-navmesh: keep the NPC Full and arm the retry backoff, so the same

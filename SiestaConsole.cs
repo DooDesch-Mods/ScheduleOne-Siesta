@@ -66,7 +66,37 @@ namespace Siesta
                     case "bounds": BoundsUpdaters(); break;
                     case "bex": Exemptions.ExemptOnAnyBehaviour = BoolArg(p, 2, !Exemptions.ExemptOnAnyBehaviour); Log("ExemptOnAnyBehaviour = " + Exemptions.ExemptOnAnyBehaviour); break;
                     case "gather": Gather(p); break;
-                    default: Log($"unknown '{cmd}'. Use: off|auto|cosmetic|deep|restore|status|why|bounds|bex|gather <m>"); break;
+                    case "move": MoveCost(p); break;
+                    case "throttle":
+                        MoveThrottle.Off = !BoolArg(p, 2, MoveThrottle.Off);
+                        Log($"movement throttle {(MoveThrottle.Off ? "OFF" : "ON")} (throttled now {MoveThrottle.Count})");
+                        break;
+                    case "mnf": MoreNpcsScanCompat.Probe(Log); break;
+                    case "sib": Log(StayInBuildingRepath.TakeStats()); break;
+                    case "agents": Agents(); break;
+                    case "types": Types(); break;
+                    case "bisect":
+                        {
+                            // siesta bisect <frames> [TypeA TypeB+TypeC ...]: one group per argument, '+' joins types.
+                            int bf = p.Length > 2 && int.TryParse(p[2], out int v) ? v : 6;
+                            string[][] groups = BisectGroups;
+                            if (p.Length > 3)
+                            {
+                                groups = new string[p.Length - 3][];
+                                for (int g = 3; g < p.Length; g++) groups[g - 3] = p[g].Split('+');
+                            }
+                            MelonLoader.MelonCoroutines.Start(Bisect(bf, groups));
+                        }
+                        break;
+                    case "sibfix":
+                        StayInBuildingRepath.Off = !BoolArg(p, 2, StayInBuildingRepath.Off);
+                        Log($"stay-in-building repath fix {(StayInBuildingRepath.Off ? "OFF" : "ON")}");
+                        break;
+                    case "mnffix":
+                        MoreNpcsScanCompat.Off = !BoolArg(p, 2, MoreNpcsScanCompat.Off);
+                        Log($"More NPCs scan replacement {(MoreNpcsScanCompat.Off ? "OFF" : "ON")}");
+                        break;
+                    default: Log($"unknown '{cmd}'. Use: off|auto|cosmetic|deep|restore|status|why|bounds|bex|gather <m>|move [n]|throttle on|off|mnf|mnffix on|off|sib|sibfix on|off|agents|types|bisect <frames> [groups]"); break;
                 }
             }
             catch (Exception e)
@@ -120,7 +150,8 @@ namespace Siesta
                     // clean per-distance measurement is impossible. PauseMovement freezes them at the ring (still
                     // rendered + animated + perceiving = the bulk of the per-NPC cost), so FPS reflects the cost of N
                     // NPCs at this distance. Release with `siesta restore` or `siesta auto`.
-                    try { mv.PauseMovement(); } catch { }
+                    try { mv.SpeedController?.AddSpeedControl("siesta_gather", 0f, int.MaxValue, SpeedControl.EType.Absolute); }
+                    catch (Exception e) { Core.Log?.Warning("gather: hold failed: " + e.Message); }
                     moved++;
                 }
                 catch { failed++; }
@@ -159,6 +190,194 @@ namespace Siesta
             }
 
             Log($"bounds updaters: total={updaters.Length} active-armed={liveActive} active-DEAD={deadActive} hidden={inactive}");
+        }
+
+        /// <summary>
+        /// What one physics step of <c>NPCMovement.FixedUpdate</c> costs per NPC. Runs the step once for every
+        /// registered NPC under a stopwatch and lists the most expensive ones with the state that decides the cost:
+        /// an NPC that has a destination, is not moving, has no pending path and can move re-runs
+        /// <c>UpdateDestination</c> -> <c>GetClosestReachablePoint</c> -> <c>NavMesh.CalculatePath</c> in every step
+        /// ("repath"). Running the step once more than the engine would only advances the NPC's own timers.
+        /// </summary>
+        private static void MoveCost(string[] p)
+        {
+            int top = 10;
+            if (p.Length > 2 && int.TryParse(p[2], out int t)) top = Mathf.Clamp(t, 1, 50);
+            var reg = NPCManager.NPCRegistry;
+            if (reg == null) { Log("move: no NPC registry"); return; }
+            int n = reg.Count;
+            var rows = new System.Collections.Generic.List<(double us, string line)>(n);
+            var sw = new System.Diagnostics.Stopwatch();
+            double total = 0;
+            int repath = 0, disabled = 0, failed = 0;
+            for (int i = 0; i < n; i++)
+            {
+                NPC npc;
+                try { npc = reg[i]; } catch { failed++; continue; }
+                if (npc == null) continue;
+                try
+                {
+                    NPCMovement mv = npc.Movement;
+                    if (mv == null) { failed++; continue; }
+                    if (!mv.enabled) disabled++;
+                    var agent = mv._agent;
+                    bool hasDest = mv._hasDestination;
+                    bool moving = mv.IsMoving;
+                    bool pending = agent != null && agent.pathPending;
+                    bool canMove = mv.CanMove;
+                    bool onMesh = agent != null && agent.enabled && agent.isOnNavMesh;
+                    bool stuck = hasDest && !moving && !pending && canMove;
+                    if (stuck) repath++;
+                    MoveThrottle.Bypass = true;
+                    sw.Restart();
+                    try { mv.FixedUpdate(); }
+                    finally { sw.Stop(); MoveThrottle.Bypass = false; }
+                    double us = sw.Elapsed.TotalMilliseconds * 1000.0;
+                    total += us;
+                    float destDist = hasDest ? Vector3.Distance(mv.FootPosition, mv.CurrentDestination) : 0f;
+                    rows.Add((us, $"{us,7:F0}us {npc.ID} dest={(hasDest ? destDist.ToString("F1") + "m" : "-")} moving={moving} " +
+                                  $"pending={pending} canMove={canMove} onMesh={onMesh} repath={stuck} throttled={MoveThrottle.IsThrottled(mv)}"));
+                }
+                catch (Exception e) { failed++; Core.Log?.Warning($"move: NPC {i} threw {e.GetType().Name}: {e.Message}"); }
+            }
+            rows.Sort((a, b) => b.us.CompareTo(a.us));
+            Log($"move: {rows.Count} NPCs, one step = {total / 1000.0:F2} ms, repath-state={repath}, component-disabled={disabled}, failed={failed}");
+            for (int i = 0; i < rows.Count && i < top; i++) Log("  " + rows[i].line);
+        }
+
+        // Component groups for the bisection, by IL2CPP type name.
+        private static readonly string[][] BisectGroups =
+        {
+            new[] { "Animator" },
+            new[] { "NavMeshAgent", "NPCMovement" },
+            new[] { "VisionCone", "NPCAwareness" },
+            new[] { "NPCScheduleManager", "NPCBehaviour" },
+            new[] { "Avatar", "AvatarLookController", "AvatarAnimation" },
+        };
+
+        /// <summary>Per component group: mean frame time over a few frames with the group on, then with it disabled
+        /// on every NPC; the group is re-enabled before the next one.</summary>
+        private static System.Collections.IEnumerator Bisect(int frames, string[][] groups)
+        {
+            var reg = NPCManager.NPCRegistry;
+            if (reg == null) { Log("bisect: no NPC registry"); yield break; }
+            var all = new System.Collections.Generic.List<Behaviour>();
+            for (int i = 0; i < reg.Count; i++)
+            {
+                try
+                {
+                    NPC npc = reg[i];
+                    if (npc == null) continue;
+                    foreach (Behaviour b in npc.GetComponentsInChildren<Behaviour>(true)) all.Add(b);
+                }
+                catch (Exception e) { Core.Log?.Warning($"bisect: NPC {i} threw {e.GetType().Name}: {e.Message}"); }
+            }
+            Log($"bisect: {all.Count} behaviours on {reg.Count} NPCs, {frames} frames per sample");
+            foreach (string[] group in groups)
+            {
+                float on = 0f;
+                for (int f = 0; f < frames; f++) { yield return null; on += Time.unscaledDeltaTime; }
+                var off = new System.Collections.Generic.List<Behaviour>();
+                foreach (Behaviour b in all)
+                {
+                    try
+                    {
+                        if (b == null || !b.enabled) continue;
+                        if (Array.IndexOf(group, b.GetIl2CppType().Name) < 0) continue;
+                        b.enabled = false;
+                        off.Add(b);
+                    }
+                    catch (Exception e) { Core.Log?.Warning("bisect: disable threw " + e.Message); }
+                }
+                yield return null; yield return null;
+                float dis = 0f;
+                for (int f = 0; f < frames; f++) { yield return null; dis += Time.unscaledDeltaTime; }
+                foreach (Behaviour b in off)
+                {
+                    try { if (b != null) b.enabled = true; }
+                    catch (Exception e) { Core.Log?.Warning("bisect: restore threw " + e.Message); }
+                }
+                Log($"bisect {string.Join("+", group)}: {off.Count} off, frame {on / frames * 1000f:F0} ms on -> {dis / frames * 1000f:F0} ms off");
+                yield return null; yield return null;
+            }
+            Log("bisect: done");
+        }
+
+        /// <summary>Enabled Behaviour types on all NPCs, most frequent first.</summary>
+        private static void Types()
+        {
+            var reg = NPCManager.NPCRegistry;
+            if (reg == null) { Log("types: no NPC registry"); return; }
+            var count = new System.Collections.Generic.Dictionary<string, int>();
+            for (int i = 0; i < reg.Count; i++)
+            {
+                try
+                {
+                    NPC npc = reg[i];
+                    if (npc == null) continue;
+                    foreach (Behaviour b in npc.GetComponentsInChildren<Behaviour>(false))
+                    {
+                        if (b == null || !b.enabled) continue;
+                        string n = b.GetIl2CppType().Name;
+                        count.TryGetValue(n, out int c);
+                        count[n] = c + 1;
+                    }
+                }
+                catch (Exception e) { Core.Log?.Warning($"types: NPC {i} threw {e.GetType().Name}: {e.Message}"); }
+            }
+            var list = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, int>>(count);
+            list.Sort((a, b) => b.Value.CompareTo(a.Value));
+            var sb = new System.Text.StringBuilder("types (enabled, active):");
+            for (int i = 0; i < list.Count && i < 40; i++) sb.Append(' ').Append(list[i].Key).Append('=').Append(list[i].Value);
+            Log(sb.ToString());
+        }
+
+        /// <summary>Why agents stand still: tally of agent state over all NPCs, plus the NavMesh obstacles of the scene.</summary>
+        private static void Agents()
+        {
+            var reg = NPCManager.NPCRegistry;
+            if (reg == null) { Log("agents: no NPC registry"); return; }
+            int on = 0, offMesh = 0, stopped = 0, hasPath = 0, pending = 0, complete = 0, partial = 0, invalid = 0,
+                speed0 = 0, moving = 0, hasDest = 0, canMove = 0;
+            for (int i = 0; i < reg.Count; i++)
+            {
+                try
+                {
+                    NPCMovement mv = reg[i]?.Movement;
+                    NavMeshAgent a = mv?._agent;
+                    if (a == null || !a.enabled) continue;
+                    on++;
+                    if (!a.isOnNavMesh) { offMesh++; continue; }
+                    if (a.isStopped) stopped++;
+                    if (a.hasPath) hasPath++;
+                    if (a.pathPending) pending++;
+                    switch (a.pathStatus)
+                    {
+                        case NavMeshPathStatus.PathComplete: complete++; break;
+                        case NavMeshPathStatus.PathPartial: partial++; break;
+                        default: invalid++; break;
+                    }
+                    if (a.speed < 0.01f) speed0++;
+                    if (a.velocity.sqrMagnitude > 0.01f) moving++;
+                    if (mv._hasDestination) hasDest++;
+                    if (mv.CanMove) canMove++;
+                }
+                catch (Exception e) { Core.Log?.Warning($"agents: NPC {i} threw {e.GetType().Name}: {e.Message}"); }
+            }
+            int obs = 0, carving = 0, carvingMoving = 0;
+            try
+            {
+                var all = UnityEngine.Object.FindObjectsOfType<NavMeshObstacle>();
+                foreach (NavMeshObstacle o in all)
+                {
+                    obs++;
+                    if (o.carving) { carving++; if (!o.carveOnlyStationary) carvingMoving++; }
+                }
+            }
+            catch (Exception e) { Core.Log?.Warning("agents: obstacle scan threw " + e.Message); }
+            Log($"agents: enabled={on} offMesh={offMesh} stopped={stopped} hasPath={hasPath} pending={pending} " +
+                $"complete={complete} partial={partial} invalid={invalid} speed0={speed0} moving={moving} " +
+                $"hasDestination={hasDest} canMove={canMove} timeScale={Time.timeScale}; obstacles={obs} carving={carving} carveWhileMoving={carvingMoving}");
         }
 
         private static void Status()

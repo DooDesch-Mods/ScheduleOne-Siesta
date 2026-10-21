@@ -23,6 +23,9 @@ namespace Siesta.Lod
             {
                 st = new NpcModState(id, npc);
                 _states[id] = st;
+                // A destroyed NPC's native address can be handed to a new one; start it at the engine's rate.
+                try { MoveThrottle.Release(npc.Movement); }
+                catch (Exception e) { LodLog.Vanilla("new NPC throttle reset", id, e); }
             }
             else
             {
@@ -47,12 +50,14 @@ namespace Siesta.Lod
                 catch { /* shutting down / NPC gone */ }
             }
             _states.Clear();
+            MoveThrottle.Clear();
         }
 
         /// <summary>Drop the table without restoring (the NPCs have already been destroyed).</summary>
         internal static void Reset()
         {
             _states.Clear();
+            MoveThrottle.Clear();
         }
 
         /// <summary>Diagnostic: tally the last deep-cull eligibility reason across tracked NPCs (null=ELIGIBLE).</summary>

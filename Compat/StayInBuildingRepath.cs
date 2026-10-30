@@ -30,8 +30,8 @@ namespace Siesta.Compat
         internal static bool Off = false;
 
 #if DEBUG
-        private static int _ticks, _skipped, _pending, _notMoving, _gcrp;
-        private static long _tickTicks, _tickMax, _gcrpTicks;
+        private static int _ticks, _skipped, _pending, _notMoving;
+        private static long _tickTicks, _tickMax;
 #endif
 
         internal static void Apply(HarmonyLib.Harmony harmony)
@@ -51,18 +51,6 @@ namespace Siesta.Compat
 #endif
                     );
                 _patched = true;
-#if DEBUG
-                var gcrp = AccessTools.Method(typeof(NPCMovement), nameof(NPCMovement.GetClosestReachablePoint));
-                if (gcrp != null)
-                {
-                    harmony.Patch(gcrp, prefix: new HarmonyMethod(typeof(StayInBuildingRepath), nameof(GcrpPrefix)),
-                        postfix: new HarmonyMethod(typeof(StayInBuildingRepath), nameof(GcrpPostfix)));
-                }
-                else
-                {
-                    Core.Log?.Warning("Stay-in-building probe: NPCMovement.GetClosestReachablePoint not found, path search is not timed.");
-                }
-#endif
                 Core.Log?.Msg("Stay-in-building repath: on.");
             }
             catch (Exception e)
@@ -120,24 +108,15 @@ namespace Siesta.Compat
             if (dt > _tickMax) _tickMax = dt;
         }
 
-        private static void GcrpPrefix(out long __state) { __state = Stopwatch.GetTimestamp(); }
-
-        private static void GcrpPostfix(long __state)
-        {
-            _gcrp++;
-            _gcrpTicks += Stopwatch.GetTimestamp() - __state;
-        }
-
-        /// <summary>Counts since the last call: ticks, skips, pending/not-moving at entry, time in the tick and in the
-        /// path search.</summary>
+        /// <summary>Counts since the last call: ticks, skips, pending/not-moving at entry, time in the tick.</summary>
         internal static string TakeStats()
         {
             double ms = 1000.0 / Stopwatch.Frequency;
             string s = $"stay-in-building ticks={_ticks} skipped={_skipped} pending={_pending} notMoving={_notMoving} "
-                     + $"tickMs={_tickTicks * ms:F1} tickMax={_tickMax * ms:F2} closestPoint calls={_gcrp} ms={_gcrpTicks * ms:F1}"
+                     + $"tickMs={_tickTicks * ms:F1} tickMax={_tickMax * ms:F2}"
                      + (Off ? " (fix off)" : "") + (_failed ? " (failed)" : "");
-            _ticks = _skipped = _pending = _notMoving = _gcrp = 0;
-            _tickTicks = _tickMax = _gcrpTicks = 0;
+            _ticks = _skipped = _pending = _notMoving = 0;
+            _tickTicks = _tickMax = 0;
             return s;
         }
 #endif

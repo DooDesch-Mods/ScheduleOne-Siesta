@@ -17,6 +17,8 @@ namespace Siesta
     ///   restore    -> restore everything to vanilla and hold at Full
     ///   status     -> log tier counts + fps + mode
     ///   bounds     -> how many avatars still have a live LOD-bounds refresh timer
+    ///   logs       -> log handlers by target, the game's collected log text, the Il2Cpp heap after a collect
+    ///   logfix     -> on|off for the log handler fix, applies to the collectors that wake up afterwards
     /// </summary>
     internal static class SiestaConsole
     {
@@ -71,6 +73,11 @@ namespace Siesta
                         MoveThrottle.Off = !BoolArg(p, 2, MoveThrottle.Off);
                         Log($"movement throttle {(MoveThrottle.Off ? "OFF" : "ON")} (throttled now {MoveThrottle.Count})");
                         break;
+                    case "logfix":
+                        LogHandlerLeak.Off = !BoolArg(p, 2, LogHandlerLeak.Off);
+                        Log($"log handler fix {(LogHandlerLeak.Off ? "OFF" : "ON")}");
+                        break;
+                    case "logs": LogHandlers(); break;
                     case "mnf": MoreNpcsScanCompat.Probe(Log); break;
                     case "sib": Log(StayInBuildingRepath.TakeStats()); break;
                     case "agents": Agents(); break;
@@ -395,6 +402,39 @@ namespace Siesta
             if (v == "on" || v == "true" || v == "1" || v == "yes") return true;
             if (v == "off" || v == "false" || v == "0" || v == "no") return false;
             return toggleDefault;
+        }
+
+        /// <summary>Handlers on Application.logMessageReceived by target, the collector's text and the heap.</summary>
+        private static void LogHandlers()
+        {
+            var byTarget = new System.Collections.Generic.SortedDictionary<string, int>();
+            int total = 0;
+            UnityEngine.Application.LogCallback handlers = UnityEngine.Application.s_LogCallbackHandler;
+            if (handlers != null)
+            {
+                foreach (Il2CppSystem.Delegate handler in handlers.GetInvocationList())
+                {
+                    total++;
+                    string name = handler.Target == null ? "(static)" : handler.Target.GetIl2CppType().FullName;
+                    byTarget[name] = byTarget.TryGetValue(name, out int n) ? n + 1 : 1;
+                }
+            }
+            int chars = Il2CppScheduleOne.Reporting.DebugLogCollector.log?.Length ?? 0;
+            Il2CppSystem.GC.Collect();
+            long heapMb = Il2CppSystem.GC.GetTotalMemory(true) / (1024L * 1024L);
+            Log($"logs: handlers={total} skipped={LogHandlerLeak.Skipped} fixOff={LogHandlerLeak.Off} collectorChars={chars} heapMb={heapMb} markerCopies={MarkerCopies()} scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+            foreach (var entry in byTarget) Log($"logs:   {entry.Value} x {entry.Key}");
+        }
+
+        /// <summary>How often one fresh log line lands in the text a bug report uploads.</summary>
+        private static int MarkerCopies()
+        {
+            string marker = "siesta-log-marker-" + Guid.NewGuid().ToString("N");
+            UnityEngine.Debug.Log(marker);
+            string text = Il2CppScheduleOne.Reporting.DebugLogCollector.Log;
+            int copies = 0;
+            for (int at = text.IndexOf(marker, StringComparison.Ordinal); at >= 0; at = text.IndexOf(marker, at + marker.Length, StringComparison.Ordinal)) copies++;
+            return copies;
         }
 
         private static void Log(string msg) => Core.Log?.Msg("[siesta] " + msg);

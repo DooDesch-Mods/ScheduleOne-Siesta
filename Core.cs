@@ -62,6 +62,8 @@ namespace Siesta
             MoveThrottle.Apply(HarmonyInstance);
             // NPCs walking to a building do not re-ask for the door path while that path is still computed.
             Compat.StayInBuildingRepath.Apply(HarmonyInstance);
+            // Log lines do not get slower and heavier with every scene the game loads.
+            Compat.LogHandlerLeak.Apply(HarmonyInstance);
 
             // Safety: never let the game serialize a culled/paused NPC, and never leave them culled across a
             // scene change. Restore everything to vanilla first; the next in-world frame re-culls as needed.

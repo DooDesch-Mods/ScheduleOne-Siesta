@@ -95,6 +95,9 @@ Two fixes run for every NPC, whatever its tier (host only):
 - An NPC on its way into a building does not ask for its path to the door again while that path is
   still being worked out.
 
+One fix runs for the whole game: the game adds another log handler with every scene it loads and never
+removes the old ones, so each log line gets slower after every reload. Siesta keeps it at one handler.
+
 The win scales with how many NPCs are far from you - it's biggest in NPC-dense saves and small in a
 sparse spot, because NPC simulation isn't always the dominant frame cost. Siesta only ever removes work
 for NPCs you aren't looking at, so it's a safe, free-when-idle optimization.

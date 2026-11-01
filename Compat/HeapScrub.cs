@@ -4,8 +4,11 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using HarmonyLib;
 using Il2CppInterop.Runtime;
+using Il2CppInterop.Runtime.InteropTypes;
 using Il2CppScheduleOne.Persistence;
+using Il2CppScheduleOne.Vision;
 using Siesta.Config;
+using UnityEngine;
 
 namespace Siesta.Compat
 {
@@ -94,6 +97,7 @@ namespace Siesta.Compat
             {
                 var watch = System.Diagnostics.Stopwatch.StartNew();
                 long before = Il2CppSystem.GC.GetTotalMemory(false) / Mb;
+                int forgotten = ForgetDestroyedSightables();
                 Snapshot* snapshot = (Snapshot*)IL2CPP.il2cpp_capture_memory_snapshot();
                 if (snapshot == null)
                 {
@@ -115,12 +119,46 @@ namespace Siesta.Compat
                 Il2CppSystem.GC.WaitForPendingFinalizers();
                 Il2CppSystem.GC.Collect();
                 long after = Il2CppSystem.GC.GetTotalMemory(false) / Mb;
-                Core.Log?.Msg($"Old scene memory: heap {before} -> {after} MB, {result}, {watch.ElapsedMilliseconds} ms");
+                Core.Log?.Msg($"Old scene memory: heap {before} -> {after} MB, {result}, {forgotten} destroyed sightables left the vision cones, {watch.ElapsedMilliseconds} ms");
             }
             catch (Exception e)
             {
                 Core.Log?.Error("Old scene memory: failed, the heap keeps what it holds: " + e);
             }
+        }
+
+        /// <summary>
+        /// The NPC prefabs S1API keeps across scenes tick their vision cones all the time, and such a cone adds every
+        /// player of every scene to its list. The game reads a destroyed player's visibility fields there on each tick,
+        /// which only works while those fields are intact, so the destroyed players leave the lists before the fields go.
+        /// </summary>
+        private static int ForgetDestroyedSightables()
+        {
+            int forgotten = 0;
+            foreach (VisionCone cone in Resources.FindObjectsOfTypeAll<VisionCone>())
+            {
+                var sightables = cone.sightablesOfInterest;
+                for (int i = (sightables?.Count ?? 0) - 1; i >= 0; i--)
+                {
+                    ISightable sightable = sightables[i];
+                    if (!IsDestroyed(sightable)) continue;
+                    sightables.RemoveAt(i);
+                    cone.stateSettings?.Remove(sightable);
+                    cone.sightableDatas?.Remove(sightable);
+                    forgotten++;
+                }
+                var events = cone.activeVisionEvents;
+                for (int i = (events?.Count ?? 0) - 1; i >= 0; i--)
+                    if (IsDestroyed(events[i].Target)) events.RemoveAt(i);
+            }
+            return forgotten;
+        }
+
+        private static bool IsDestroyed(ISightable sightable)
+        {
+            if (ReferenceEquals(sightable, null)) return false;
+            var unityObject = ((Il2CppObjectBase)sightable).TryCast<UnityEngine.Object>();
+            return !ReferenceEquals(unityObject, null) && unityObject == null;
         }
 
         /// <summary>

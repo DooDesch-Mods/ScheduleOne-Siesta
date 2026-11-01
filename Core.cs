@@ -64,6 +64,8 @@ namespace Siesta
             Compat.StayInBuildingRepath.Apply(HarmonyInstance);
             // Log lines do not get slower and heavier with every scene the game loads.
             Compat.LogHandlerLeak.Apply(HarmonyInstance);
+            // The memory of old scenes goes away when the next save starts loading.
+            Compat.HeapScrub.Apply(HarmonyInstance);
 
             // Safety: never let the game serialize a culled/paused NPC, and never leave them culled across a
             // scene change. Restore everything to vanilla first; the next in-world frame re-culls as needed.

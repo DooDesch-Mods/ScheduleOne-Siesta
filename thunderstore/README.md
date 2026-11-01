@@ -42,9 +42,13 @@ ever removes work for NPCs you aren't looking at, so it's a safe, free-when-idle
 ## Settings
 
 `EnableLod`, `EnableInMultiplayer`, `CosmeticDistance` (40), `DeepDistance` (80), `Hysteresis` (8),
-`BudgetPerFrame` (32), `UseCosmeticCull`, `UseDeepCull`, `RespectOnScreen`, `ShowFpsCounter`.
+`BudgetPerFrame` (32), `UseCosmeticCull`, `UseDeepCull`, `RespectOnScreen`, `ShowFpsCounter`, `FreeOldSceneMemory`.
 Editable in `UserData/MelonPreferences.cfg`.
 
 ## License
 
 MIT. See the included LICENSE.md.
+
+This mod is written with help from generative AI tools (Anthropic Claude, OpenAI Codex).
+
+If you have fun with it, a like on the [Thunderstore page](https://thunderstore.io/c/schedule-i/p/DooDesch/Siesta/) really helps other people find it (thumbs up next to Download, you need to be logged in) - ty either way, and lemme know if anything breaks or you've got ideas

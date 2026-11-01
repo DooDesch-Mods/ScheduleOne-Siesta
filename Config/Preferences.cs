@@ -25,6 +25,7 @@ namespace Siesta.Config
         private static MelonPreferences_Entry<bool> _useDeepCull;
         private static MelonPreferences_Entry<bool> _respectOnScreen;
         private static MelonPreferences_Entry<bool> _throttleMovement;
+        private static MelonPreferences_Entry<bool> _freeOldSceneMemory;
         private static MelonPreferences_Entry<bool> _showFps;
 
         internal static void Initialize()
@@ -76,6 +77,9 @@ namespace Siesta.Config
                 "they cannot reach, run their movement check 5 times a second instead of every physics step. A stuck " +
                 "NPC re-plans its path in each of those checks. Host-only in multiplayer. OFF: every NPC checks " +
                 "every step, as in vanilla.");
+            _freeOldSceneMemory = Create("FreeOldSceneMemory", true, "Free the memory of old scenes",
+                "ON (default): every time a save loads, what is left of the previous scene is released. " +
+                "OFF: as in vanilla, memory grows with every load until the game restarts.");
             _showFps = Create("ShowFpsCounter", false, "Show FPS counter",
                 "Small on-screen FPS readout (top-right). OFF by default. Applies live.");
         }
@@ -100,6 +104,7 @@ namespace Siesta.Config
         internal static bool UseDeepCull => _useDeepCull?.Value ?? true;
         internal static bool RespectOnScreen => _respectOnScreen?.Value ?? true;
         internal static bool ThrottleFarMovement => _throttleMovement?.Value ?? true;
+        internal static bool FreeOldSceneMemory => _freeOldSceneMemory?.Value ?? true;
         internal static bool ShowFpsCounter => _showFps?.Value ?? false;
     }
 }

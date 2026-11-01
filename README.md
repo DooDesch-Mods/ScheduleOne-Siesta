@@ -74,6 +74,7 @@ under `Siesta_01_Main`. Changes apply live.
 | `UseDeepCull` | `true` | Enable the pause-movement/schedule tier. |
 | `RespectOnScreen` | `true` | Never cull an NPC roughly in view. |
 | `ThrottleFarMovement` | `true` | Far NPCs, and NPCs stuck on a spot they cannot reach, check their walk 5 times a second instead of every physics step (host only). |
+| `FreeOldSceneMemory` | `true` | Each time a save loads, what is left of the previous scene is released. Off = memory grows with every load. |
 | `ShowFpsCounter` | `false` | Tiny on-screen FPS readout (top-right). |
 
 An on-screen HUD, hotkeys (F6-F10) and a `siesta ...` dev console exist only in development builds and
@@ -95,8 +96,12 @@ Two fixes run for every NPC, whatever its tier (host only):
 - An NPC on its way into a building does not ask for its path to the door again while that path is
   still being worked out.
 
-One fix runs for the whole game: the game adds another log handler with every scene it loads and never
-removes the old ones, so each log line gets slower after every reload. Siesta keeps it at one handler.
+Two fixes run for the whole game:
+
+- The game adds another log handler with every scene it loads and never removes the old ones, so each log
+  line gets slower after every reload. Siesta keeps it at one handler.
+- The game keeps most of every scene you left in memory, about 150 MB per load, until it restarts. Siesta
+  releases it when the next save starts loading.
 
 The win scales with how many NPCs are far from you - it's biggest in NPC-dense saves and small in a
 sparse spot, because NPC simulation isn't always the dominant frame cost. Siesta only ever removes work

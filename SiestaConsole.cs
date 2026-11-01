@@ -19,6 +19,8 @@ namespace Siesta
     ///   bounds     -> how many avatars still have a live LOD-bounds refresh timer
     ///   logs       -> log handlers by target, the game's collected log text, the Il2Cpp heap after a collect
     ///   logfix     -> on|off for the log handler fix, applies to the collectors that wake up afterwards
+    ///   heapfix    -> on|off for releasing old scene memory at load start
+    ///   scrub      -> release old scene memory now
     /// </summary>
     internal static class SiestaConsole
     {
@@ -78,6 +80,11 @@ namespace Siesta
                         Log($"log handler fix {(LogHandlerLeak.Off ? "OFF" : "ON")}");
                         break;
                     case "logs": LogHandlers(); break;
+                    case "heapfix":
+                        HeapScrub.Off = !BoolArg(p, 2, HeapScrub.Off);
+                        Log($"old scene memory fix {(HeapScrub.Off ? "OFF" : "ON")}");
+                        break;
+                    case "scrub": HeapScrub.Run(); break;
                     case "mnf": MoreNpcsScanCompat.Probe(Log); break;
                     case "sib": Log(StayInBuildingRepath.TakeStats()); break;
                     case "agents": Agents(); break;

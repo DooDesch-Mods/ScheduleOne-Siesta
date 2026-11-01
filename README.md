@@ -133,3 +133,5 @@ for NPCs you aren't looking at, so it's a safe, free-when-idle optimization.
 ## License
 
 Provided as-is under the [MIT License](LICENSE.md).
+
+This mod is written with help from generative AI tools (Anthropic Claude, OpenAI Codex).

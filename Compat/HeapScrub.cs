@@ -178,13 +178,14 @@ namespace Siesta.Compat
             private readonly Dictionary<ulong, int> _byInfo;
             private readonly ulong[] _sectionStarts;
             private readonly int[] _sectionIndex;
-            private readonly bool[] _isUnity, _isDelegate, _isClosure;
+            private readonly bool[] _isUnity, _isDelegate, _isClosure, _isNpc;
             private readonly uint[] _multicastOffset;
             private readonly int[][] _instanceSlots, _elementSlots;
             private readonly Dictionary<ulong, bool> _returnsInMemory = new Dictionary<ulong, bool>();
             private readonly HashSet<ulong> _seen = new HashSet<ulong>();
             private readonly Stack<ulong> _todo = new Stack<ulong>();
             private readonly HashSet<ulong> _dead = new HashSet<ulong>();
+            private readonly HashSet<ulong> _kept = new HashSet<ulong>();
             private readonly List<ulong> _delegates = new List<ulong>();
             private Section* _last;
             private ulong _cached, _target, _invoke, _methodPtr, _code, _method;
@@ -199,6 +200,7 @@ namespace Siesta.Compat
                 _isUnity = new bool[_typeCount];
                 _isDelegate = new bool[_typeCount];
                 _isClosure = new bool[_typeCount];
+                _isNpc = new bool[_typeCount];
                 _multicastOffset = new uint[_typeCount];
                 _instanceSlots = new int[_typeCount][];
                 _elementSlots = new int[_typeCount][];
@@ -217,6 +219,7 @@ namespace Siesta.Compat
                 if (!FindTypes()) return "no change, the runtime's type table has an unexpected layout";
                 Roots();
                 Follow();
+                _dead.ExceptWith(_kept);
                 long stubbed = 0, inMemory = 0;
                 nint stub = (nint)(delegate* unmanaged<nint>)&Nothing;
                 foreach (ulong start in _delegates)
@@ -240,19 +243,22 @@ namespace Siesta.Compat
                     }
                 return $"{_dead.Count} destroyed objects let go of {refs} references, {stubbed} handlers off " +
                        $"({_closures} through a closure, {inMemory} left on because of their return type), " +
+                       $"{_kept.Count} removed NPC components kept, " +
                        $"{_reached} objects walked, {_unknown} references without a known type";
             }
 
             private bool FindTypes()
             {
-                int unityRoot = -1, delegateRoot = -1;
+                int unityRoot = -1, delegateRoot = -1, npcRoot = -1;
                 for (int i = 0; i < _typeCount; i++)
                 {
                     _byInfo[_snap->Types[i].TypeInfo] = i;
                     string name = Str(_snap->Types[i].Name);
                     if (name == "UnityEngine.Object") unityRoot = i;
                     else if (name == "System.Delegate") delegateRoot = i;
+                    else if (name == "ScheduleOne.NPCs.NPC") npcRoot = i;
                 }
+                if (npcRoot < 0) Core.Log?.Warning("Old scene memory: ScheduleOne.NPCs.NPC is missing from the type table, removed NPC components lose their fields.");
                 if (unityRoot < 0 || delegateRoot < 0)
                 {
                     Core.Log?.Warning($"Old scene memory: base types missing, UnityEngine.Object {unityRoot}, System.Delegate {delegateRoot}.");
@@ -283,6 +289,7 @@ namespace Siesta.Compat
                         var c = _snap->Types + cur;
                         if (cur == unityRoot) _isUnity[i] = true;
                         if (cur == delegateRoot) _isDelegate[i] = true;
+                        if (cur == npcRoot) _isNpc[i] = true;
                         for (uint k = 0; k < c->FieldCount; k++)
                         {
                             var x = c->Fields + k;
@@ -378,7 +385,23 @@ namespace Siesta.Compat
                     if (mine == null) continue;
                     if (_isUnity[ti] && Peek(at + _cached) == 0) { _dead.Add(at); continue; }
                     if (_isDelegate[ti]) _delegates.Add(at);
+                    if (_isUnity[ti]) KeepRemovedNpcs(at, mine);
                     foreach (int offset in mine) Visit(Peek(at + (ulong)offset));
+                }
+            }
+
+            /// <summary>
+            /// S1API removes the NPC component from the NPC prefabs it keeps across scenes, and the components around it
+            /// go on pointing at the removed one. The game reads its fields through them without a null check, a prefab's
+            /// NPCHealth on every sleep, so a destroyed NPC that a live object holds keeps its fields and its handlers.
+            /// </summary>
+            private void KeepRemovedNpcs(ulong holder, int[] slots)
+            {
+                foreach (int offset in slots)
+                {
+                    ulong value = Peek(holder + (ulong)offset);
+                    if (value != 0 && (value & 7) == 0 && _byInfo.TryGetValue(Peek(value), out int type) && _isNpc[type] && Peek(value + _cached) == 0)
+                        _kept.Add(value);
                 }
             }
 

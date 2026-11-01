@@ -3,6 +3,12 @@
 All notable changes to Siesta are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.2] - 2026-11-01
+
+### Fixed
+
+- The first night after starting the game with NPC packs logged an error. The memory cleanup from 1.3.1 caused it.
+
 ## [1.3.1] - 2026-11-01
 
 ### Fixed

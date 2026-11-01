@@ -7,7 +7,7 @@ All notable changes to Siesta are documented here. This project adheres to
 
 ### Fixed
 
-- Reloading a save in one session adds about 5 MB of memory per load instead of about 150 MB. `FreeOldSceneMemory`
+- Reloading a save in one session adds about 5 to 15 MB of memory per load instead of about 150 MB. `FreeOldSceneMemory`
   switches this off.
 - Log lines stop getting slower with every reload of a save: the game added more log handlers with each load and
   never removed them.

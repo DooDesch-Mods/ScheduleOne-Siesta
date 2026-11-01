@@ -12,7 +12,7 @@
 ![S1API](https://img.shields.io/badge/S1API-required-orange)
 [![Polyfill](https://polyfill.doomods.com/badge/siesta.svg)](https://polyfill.doomods.com/mod/siesta)
 
-[![MLVScan Siesta.dll](https://mlvscan.com/attestations/att_Qapqtw3EPQPfN8O7B2F5cZq9/badge.svg)](https://mlvscan.com/attestations/att_Qapqtw3EPQPfN8O7B2F5cZq9)
+[![MLVScan Siesta.dll](https://mlvscan.com/attestations/att_MR_nGlzZOQ9ZAIibYQmgcX3W/badge.svg)](https://mlvscan.com/attestations/att_MR_nGlzZOQ9ZAIibYQmgcX3W)
 
 ## Features
 

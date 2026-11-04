@@ -2,6 +2,8 @@
 
 > 🛟 **Need help or found a bug?** Get support at [support.doodesch.de/siesta](https://support.doodesch.de/siesta).
 
+[![Discord](https://mods.doodesch.de/img/badge.svg)](https://mods.doodesch.de)
+
 > **Distant NPCs take a siesta so your FPS doesn't.** Siesta puts off-screen, far-away NPCs to
 > sleep - hiding them and pausing their movement/schedule - then wakes them cleanly as you approach.
 > Works on every NPC in the world, including ones added by other mods.
@@ -44,6 +46,12 @@ ever removes work for NPCs you aren't looking at, so it's a safe, free-when-idle
 `EnableLod`, `EnableInMultiplayer`, `CosmeticDistance` (40), `DeepDistance` (80), `Hysteresis` (8),
 `BudgetPerFrame` (32), `UseCosmeticCull`, `UseDeepCull`, `RespectOnScreen`, `ShowFpsCounter`, `FreeOldSceneMemory`.
 Editable in `UserData/MelonPreferences.cfg`.
+
+## Community
+
+[![DooDesch Mods on Discord](https://mods.doodesch.de/img/card.svg)](https://mods.doodesch.de)
+
+Join the DooDesch Mods Discord: update pings, polls on what comes next, and playtests of new mods.
 
 ## License
 

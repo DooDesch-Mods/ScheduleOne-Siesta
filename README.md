@@ -4,6 +4,8 @@
 
 **Download:** [Nexus Mods](https://www.nexusmods.com/schedule1/mods/2210) · [Thunderstore](https://thunderstore.io/c/schedule-i/p/DooDesch/Siesta/) · [GitHub Releases](https://github.com/DooDesch-Mods/ScheduleOne-Siesta/releases)
 
+[![Discord](https://mods.doodesch.de/img/badge.svg)](https://mods.doodesch.de)
+
 📖 **Documentation:** [docs.doodesch.de/mods/siesta/](https://docs.doodesch.de/mods/siesta/)
 
 > Big crowds tanking your frames? Siesta puts off-screen, far-away NPCs to sleep - hiding them
@@ -133,6 +135,12 @@ for NPCs you aren't looking at, so it's a safe, free-when-idle optimization.
   path planning above cost most of each frame. Right after loading a save the game still runs slowly for
   up to a minute while the extra NPCs settle in.
 - IL2CPP build only (current Steam public branch).
+
+## Community
+
+[![DooDesch Mods on Discord](https://mods.doodesch.de/img/card.svg)](https://mods.doodesch.de)
+
+Join the DooDesch Mods Discord: update pings, polls on what comes next, and playtests of new mods.
 
 ## Credits
 

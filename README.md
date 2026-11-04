@@ -4,8 +4,6 @@
 
 **Download:** [Nexus Mods](https://www.nexusmods.com/schedule1/mods/2210) · [Thunderstore](https://thunderstore.io/c/schedule-i/p/DooDesch/Siesta/) · [GitHub Releases](https://github.com/DooDesch-Mods/ScheduleOne-Siesta/releases)
 
-[![Discord](https://mods.doodesch.de/img/badge.svg)](https://mods.doodesch.de)
-
 📖 **Documentation:** [docs.doodesch.de/mods/siesta/](https://docs.doodesch.de/mods/siesta/)
 
 > Big crowds tanking your frames? Siesta puts off-screen, far-away NPCs to sleep - hiding them
@@ -18,7 +16,7 @@
 ![MelonLoader](https://img.shields.io/badge/MelonLoader-0.7.3+-green)
 ![S1API](https://img.shields.io/badge/S1API-required-orange)
 ![Status](https://img.shields.io/badge/status-working-brightgreen)
-[![Polyfill](https://polyfill.doomods.com/badge/siesta.svg)](https://polyfill.doomods.com/mod/siesta)
+[![Discord](https://mods.doodesch.de/img/badge.svg)](https://mods.doodesch.de) [![Polyfill](https://polyfill.doomods.com/badge/siesta.svg)](https://polyfill.doomods.com/mod/siesta)
 
 [![MLVScan Siesta.dll](https://mlvscan.com/attestations/att_MR_nGlzZOQ9ZAIibYQmgcX3W/badge.svg)](https://mlvscan.com/attestations/att_MR_nGlzZOQ9ZAIibYQmgcX3W)
 

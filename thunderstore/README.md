@@ -2,8 +2,6 @@
 
 > 🛟 **Need help or found a bug?** Get support at [support.doodesch.de/siesta](https://support.doodesch.de/siesta).
 
-[![Discord](https://mods.doodesch.de/img/badge.svg)](https://mods.doodesch.de)
-
 > **Distant NPCs take a siesta so your FPS doesn't.** Siesta puts off-screen, far-away NPCs to
 > sleep - hiding them and pausing their movement/schedule - then wakes them cleanly as you approach.
 > Works on every NPC in the world, including ones added by other mods.
@@ -12,7 +10,7 @@
 ![Game](https://img.shields.io/badge/game-Schedule%20I-purple)
 ![MelonLoader](https://img.shields.io/badge/MelonLoader-0.7.3+-green)
 ![S1API](https://img.shields.io/badge/S1API-required-orange)
-[![Polyfill](https://polyfill.doomods.com/badge/siesta.svg)](https://polyfill.doomods.com/mod/siesta)
+[![Discord](https://mods.doodesch.de/img/badge.svg)](https://mods.doodesch.de) [![Polyfill](https://polyfill.doomods.com/badge/siesta.svg)](https://polyfill.doomods.com/mod/siesta)
 
 [![MLVScan Siesta.dll](https://mlvscan.com/attestations/att_MR_nGlzZOQ9ZAIibYQmgcX3W/badge.svg)](https://mlvscan.com/attestations/att_MR_nGlzZOQ9ZAIibYQmgcX3W)
 

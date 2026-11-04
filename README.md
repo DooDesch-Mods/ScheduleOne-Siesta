@@ -2,6 +2,8 @@
 
 > 🛟 **Need help or found a bug?** Get support at [support.doodesch.de/siesta](https://support.doodesch.de/siesta).
 
+**Download:** [Nexus Mods](https://www.nexusmods.com/schedule1/mods/2210) · [Thunderstore](https://thunderstore.io/c/schedule-i/p/DooDesch/Siesta/) · [GitHub Releases](https://github.com/DooDesch-Mods/ScheduleOne-Siesta/releases)
+
 📖 **Documentation:** [docs.doodesch.de/mods/siesta/](https://docs.doodesch.de/mods/siesta/)
 
 > Big crowds tanking your frames? Siesta puts off-screen, far-away NPCs to sleep - hiding them
@@ -46,10 +48,17 @@
 
 ## Installation
 
-### Recommended: a Thunderstore mod manager
+### Recommended: Nexus Mods
+
+1. Install **MelonLoader 0.7.3** for Schedule I ([melonwiki.xyz](https://melonwiki.xyz/)).
+2. Download Siesta from [Nexus Mods](https://www.nexusmods.com/schedule1/mods/2210) and install it with Vortex,
+   or put **`Siesta.dll`** into your Schedule I `Mods/` folder.
+3. Get **S1API** the same way.
+
+### Thunderstore mod manager
 
 Install with a mod manager (r2modman / Gale) from the Schedule I community; the dependencies
-(MelonLoader, S1API) are pulled in automatically.
+(MelonLoader, S1API) are pulled in automatically. Find it on the [Thunderstore page](https://thunderstore.io/c/schedule-i/p/DooDesch/Siesta/).
 
 ### Manual
 

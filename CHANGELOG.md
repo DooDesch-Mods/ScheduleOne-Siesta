@@ -3,6 +3,16 @@
 All notable changes to Siesta are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## [1.3.3] - 2026-11-23
+
+### Fixed
+
+- Phone contacts from other mods (Empire 2.0, Drug Pack) no longer show up as bodies behind the gas mart.
+
+### Changed
+
+- The GitHub release also carries the mod manager ZIP for import as a local mod.
+
 ## [1.3.2] - 2026-11-01
 
 ### Fixed

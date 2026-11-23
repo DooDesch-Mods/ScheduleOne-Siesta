@@ -26,6 +26,7 @@ namespace Siesta.Lod
         internal bool ThrottledWhileStuck; // throttled although near: it stands on a destination it cannot path to
         internal bool WakeFailed;          // a wake left the agent off-navmesh -> controller marks permanent-exempt
         internal string ExemptReason;      // last deep-cull eligibility result (null = eligible) - diagnostics only
+        internal bool LeftHiddenLogged;    // logged once that Hide left this already-invisible NPC alone
 
         // Lazily-resolved components (an NPC's type/components don't change over its lifetime).
         private bool _resolved;

@@ -18,7 +18,7 @@
 ![Status](https://img.shields.io/badge/status-working-brightgreen)
 [![Discord](https://mods.doodesch.de/img/badge.svg)](https://mods.doodesch.de) [![Polyfill](https://polyfill.doomods.com/badge/siesta.svg)](https://polyfill.doomods.com/mod/siesta)
 
-[![MLVScan Siesta.dll](https://mlvscan.com/attestations/att_MR_nGlzZOQ9ZAIibYQmgcX3W/badge.svg)](https://mlvscan.com/attestations/att_MR_nGlzZOQ9ZAIibYQmgcX3W)
+[![MLVScan Siesta.dll](https://mlvscan.com/attestations/att_K_6tKezjHj3n7yTXTaFH64NY/badge.svg)](https://mlvscan.com/attestations/att_K_6tKezjHj3n7yTXTaFH64NY)
 
 ## Features
 

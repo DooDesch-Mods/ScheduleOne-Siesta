@@ -70,6 +70,25 @@ namespace Siesta.Lod
 
         private static void Hide(NPC npc, NpcModState st, bool authoritative)
         {
+            // An NPC that is already invisible is hidden by the game (building, vehicle) or by the mod that added
+            // it: S1API keeps contact-only NPCs (phone contacts without a body) invisible at the map origin. Taking
+            // it over would let Show() make it visible later, and OnVisibilityChange(true) below would switch its
+            // NavMeshAgent back on, so a body would appear behind the gas mart or start walking around.
+            bool visible;
+            try { visible = npc.isVisible; }
+            catch (Exception e) { LodLog.Vanilla("isVisible", st.Id, e); visible = true; }
+            if (!visible)
+            {
+                if (!st.LeftHiddenLogged)
+                {
+                    st.LeftHiddenLogged = true;
+                    string id;
+                    try { id = npc.ID; } catch { id = "#" + st.Id; }
+                    Core.Log?.Msg($"LOD: '{id}' is already hidden by the game or its mod - left as it is.");
+                }
+                return;
+            }
+
             // Claim ownership before the call: if SetVisible throws half-way the NPC may already be hidden, and
             // a lost flag would mean nothing ever shows it again.
             st.Hidden = true;
